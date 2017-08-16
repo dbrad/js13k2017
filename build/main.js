@@ -1,0 +1,454 @@
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+var Engine = (function () {
+    function Engine(canvas) {
+        this.clearScreen = false;
+        this.redraw = false;
+        this.systemPause = false;
+        this.screen = canvas;
+        this.ctx = this.screen.getContext("2d");
+        this.ctx.mozImageSmoothingEnabled = false;
+        this.ctx.imageSmoothingEnabled = false;
+        this.buffer = document.createElement("canvas");
+        this.buffer.width = this.screen.width;
+        this.buffer.height = this.screen.height;
+        this.bufferCtx = this.buffer.getContext("2d");
+        this.bufferCtx.mozImageSmoothingEnabled = false;
+        this.bufferCtx.imageSmoothingEnabled = false;
+        this.gsm = new GameStateManager();
+    }
+    Engine.prototype.update = function (delta) {
+        if (!this.systemPause) {
+            this.gsm.current.update(delta);
+        }
+    };
+    Engine.prototype.draw = function () {
+        if (this.clearScreen || this.gsm.current.requestingClear) {
+            this.clearScreen = this.gsm.current.requestingClear = false;
+        }
+        if (!this.systemPause && (this.redraw || this.gsm.current.redraw)) {
+            this.gsm.current.draw(this.bufferCtx);
+            this.redraw = this.gsm.current.redraw = false;
+        }
+        else if (this.systemPause && this.redraw) {
+            this.redraw = this.gsm.current.redraw = false;
+        }
+    };
+    Engine.prototype.loop = function () {
+        var now = performance.now();
+        var delta = (now - this.then);
+        this.then = now;
+        this.update(delta);
+        this.draw();
+        this.loopHandle = window.requestAnimationFrame(this.loop.bind(this));
+    };
+    Engine.prototype.run = function () {
+        this.loopHandle = window.requestAnimationFrame(this.loop.bind(this));
+    };
+    Engine.prototype.stop = function () {
+        window.cancelAnimationFrame(this.loopHandle);
+    };
+    Engine.prototype.pause = function () {
+        console.log('engine paused');
+        this.systemPause = true;
+    };
+    Engine.prototype.unpause = function () {
+        console.log('engine unpaused');
+        this.systemPause = false;
+    };
+    return Engine;
+}());
+var AudioPool = (function () {
+    function AudioPool(sound, maxSize) {
+        if (maxSize === void 0) { maxSize = 1; }
+        this.pool = [];
+        this.index = 0;
+        this.maxSize = maxSize;
+        for (var i = 0; i < this.maxSize; i++) {
+            this.pool[i] = new Audio(sound);
+            this.pool[i].load();
+        }
+    }
+    AudioPool.prototype.play = function () {
+        if (this.pool[this.index].currentTime === 0 || this.pool[this.index].ended) {
+            this.pool[this.index].play();
+        }
+        this.index = (this.index + 1) % this.maxSize;
+    };
+    return AudioPool;
+}());
+var Component = (function () {
+    function Component(name) {
+        this.name = name;
+    }
+    return Component;
+}());
+var Dm = (function () {
+    function Dm(w, h) {
+        if (w === void 0) { w = 0; }
+        if (h === void 0) { h = 0; }
+        this.w = w;
+        this.h = h;
+    }
+    Dm.from = function (w, h) {
+        return new Dm(w, h);
+    };
+    return Dm;
+}());
+var Pt = (function () {
+    function Pt(x, y) {
+        if (x === void 0) { x = 0; }
+        if (y === void 0) { y = 0; }
+        this.x = x;
+        this.y = y;
+    }
+    Pt.from = function (x, y) {
+        return new Pt(x, y);
+    };
+    return Pt;
+}());
+var ECS;
+(function (ECS) {
+    var AABB = (function (_super) {
+        __extends(AABB, _super);
+        function AABB(_a) {
+            var _b = _a.w, w = _b === void 0 ? 0 : _b, _c = _a.h, h = _c === void 0 ? 0 : _c;
+            var _this = _super.call(this, 'aabb') || this;
+            _this.value = new Dm(w, h);
+            return _this;
+        }
+        return AABB;
+    }(Component));
+    ECS.AABB = AABB;
+    var Pos = (function (_super) {
+        __extends(Pos, _super);
+        function Pos(_a) {
+            var _b = _a.x, x = _b === void 0 ? 0 : _b, _c = _a.y, y = _c === void 0 ? 0 : _c;
+            var _this = _super.call(this, 'position') || this;
+            _this.value = new Pt(x, y);
+            return _this;
+        }
+        return Pos;
+    }(Component));
+    ECS.Pos = Pos;
+    var Style = (function (_super) {
+        __extends(Style, _super);
+        function Style(colour) {
+            var _this = _super.call(this, 'style') || this;
+            _this.value = colour;
+            return _this;
+        }
+        return Style;
+    }(Component));
+    ECS.Style = Style;
+    var Sprite = (function (_super) {
+        __extends(Sprite, _super);
+        function Sprite(sprite) {
+            var _this = _super.call(this, 'sprite') || this;
+            _this.value = sprite;
+            return _this;
+        }
+        return Sprite;
+    }(Component));
+    ECS.Sprite = Sprite;
+    var Tag = (function (_super) {
+        __extends(Tag, _super);
+        function Tag(tag, value) {
+            var _this = _super.call(this, tag) || this;
+            _this.value = value;
+            return _this;
+        }
+        return Tag;
+    }(Component));
+    ECS.Tag = Tag;
+    var Flag = (function (_super) {
+        __extends(Flag, _super);
+        function Flag(name, value) {
+            var _this = _super.call(this, name) || this;
+            _this.value = value;
+            return _this;
+        }
+        return Flag;
+    }(Component));
+    ECS.Flag = Flag;
+})(ECS || (ECS = {}));
+var Entity = (function () {
+    function Entity() {
+        this.components = {};
+        if (!Entity.autoID) {
+            Entity.autoID = 0;
+        }
+        this.id = Entity.autoID++;
+        return this;
+    }
+    Entity.prototype.addComponent = function (component) {
+        this.components[component.name] = component;
+        return this;
+    };
+    return Entity;
+}());
+var Input;
+(function (Input) {
+    var KB;
+    (function (KB) {
+        var KEY;
+        (function (KEY) {
+            KEY[KEY["A"] = 65] = "A";
+            KEY[KEY["D"] = 68] = "D";
+            KEY[KEY["W"] = 87] = "W";
+            KEY[KEY["S"] = 83] = "S";
+            KEY[KEY["LEFT"] = 37] = "LEFT";
+            KEY[KEY["RIGHT"] = 39] = "RIGHT";
+            KEY[KEY["UP"] = 38] = "UP";
+            KEY[KEY["DOWN"] = 40] = "DOWN";
+            KEY[KEY["ENTER"] = 13] = "ENTER";
+            KEY[KEY["SPACE"] = 32] = "SPACE";
+            KEY[KEY["NUM_1"] = 49] = "NUM_1";
+            KEY[KEY["NUM_2"] = 50] = "NUM_2";
+            KEY[KEY["NUM_3"] = 51] = "NUM_3";
+            KEY[KEY["NUM_4"] = 52] = "NUM_4";
+            KEY[KEY["NUM_5"] = 53] = "NUM_5";
+            KEY[KEY["C"] = 67] = "C";
+        })(KEY = KB.KEY || (KB.KEY = {}));
+        var META_KEY;
+        (function (META_KEY) {
+            META_KEY[META_KEY["UP"] = 0] = "UP";
+            META_KEY[META_KEY["DOWN"] = 1] = "DOWN";
+            META_KEY[META_KEY["LEFT"] = 2] = "LEFT";
+            META_KEY[META_KEY["RIGHT"] = 3] = "RIGHT";
+            META_KEY[META_KEY["ACTION"] = 4] = "ACTION";
+        })(META_KEY = KB.META_KEY || (KB.META_KEY = {}));
+        KB.KEY_BIND = [];
+        KB.KEY_BIND[META_KEY.UP] = [KEY.W, KEY.UP];
+        KB.KEY_BIND[META_KEY.DOWN] = [KEY.S, KEY.DOWN];
+        KB.KEY_BIND[META_KEY.LEFT] = [KEY.A, KEY.LEFT];
+        KB.KEY_BIND[META_KEY.RIGHT] = [KEY.D, KEY.RIGHT];
+        KB.KEY_BIND[META_KEY.ACTION] = [KEY.SPACE, KEY.ENTER];
+        var _isDown = [];
+        var _isUp = [];
+        var _wasDown = [];
+        for (var i = 0; i < 256; i++) {
+            _isUp[i] = true;
+        }
+        function isDown(keyCode) {
+            return (_isDown[keyCode]);
+        }
+        KB.isDown = isDown;
+        function wasDown(keyCode) {
+            var result = _wasDown[keyCode];
+            _wasDown[keyCode] = false;
+            return result;
+        }
+        KB.wasDown = wasDown;
+        function clearInputQueue() {
+            for (var key in _wasDown) {
+                _wasDown[key] = false;
+            }
+        }
+        KB.clearInputQueue = clearInputQueue;
+        function keyDown(event) {
+            var keyCode = event.which;
+            _isDown[keyCode] = true;
+            if (_isUp[keyCode]) {
+                _wasDown[keyCode] = true;
+            }
+            _isUp[keyCode] = false;
+        }
+        KB.keyDown = keyDown;
+        function keyUp(event) {
+            var keyCode = event.which;
+            _isDown[keyCode] = false;
+            _isUp[keyCode] = true;
+        }
+        KB.keyUp = keyUp;
+        function isBindDown(key) {
+            var result = false;
+            for (var _i = 0, _a = KB.KEY_BIND[key]; _i < _a.length; _i++) {
+                var k = _a[_i];
+                result = result || _isDown[k];
+            }
+            return result;
+        }
+        KB.isBindDown = isBindDown;
+        function wasBindDown(key) {
+            var result = false;
+            for (var _i = 0, _a = KB.KEY_BIND[key]; _i < _a.length; _i++) {
+                var k = _a[_i];
+                result = result || _wasDown[k];
+                _wasDown[k] = false;
+            }
+            return result;
+        }
+        KB.wasBindDown = wasBindDown;
+    })(KB = Input.KB || (Input.KB = {}));
+})(Input || (Input = {}));
+var ImageCache;
+(function (ImageCache) {
+    var cache = {};
+    function getTexture(name) {
+        return cache[name];
+    }
+    ImageCache.getTexture = getTexture;
+    var toLoad = {};
+    var loadCount = 0;
+    var Loader;
+    (function (Loader) {
+        function add(name, url) {
+            toLoad[name] = url;
+            loadCount++;
+        }
+        Loader.add = add;
+        function load(callback) {
+            var async = { counter: 0, loadCount: 0, callback: callback };
+            var done = function (async) { if ((async.counter++) === async.loadCount) {
+                async.callback();
+            } };
+            for (var img in toLoad) {
+                cache[img] = new Image();
+                cache[img].src = toLoad[img];
+                cache[img].onload = done.bind(this, async);
+                delete toLoad[img];
+            }
+            loadCount = 0;
+        }
+        Loader.load = load;
+    })(Loader = ImageCache.Loader || (ImageCache.Loader = {}));
+})(ImageCache || (ImageCache = {}));
+var SpriteSheet = (function () {
+    function SpriteSheet(imageName, sheetName, tileSize, gutter, subsheet, offset) {
+        if (gutter === void 0) { gutter = 0; }
+        if (subsheet === void 0) { subsheet = new Dm(0, 0); }
+        if (offset === void 0) { offset = new Pt(0, 0); }
+        this.sprites = [];
+        this.name = sheetName;
+        this.offset = offset;
+        this.subsheet = subsheet;
+        this.tileSize = tileSize;
+        this.gutter = gutter;
+        this.image = ImageCache.getTexture(imageName);
+        this.storeSprites();
+    }
+    SpriteSheet.prototype.reColourize = function (index, r, g, b, a) {
+        var spriteCtx = this.sprites[index].getContext("2d");
+        var colourData = spriteCtx.getImageData(0, 0, this.tileSize, this.tileSize);
+        for (var i = 0; i < (this.tileSize * this.tileSize) * 4; i += 4) {
+            colourData.data[i] = r || colourData.data[i];
+            colourData.data[i + 1] = g || colourData.data[i + 1];
+            colourData.data[i + 2] = b || colourData.data[i + 2];
+            colourData.data[i + 3] = a || colourData.data[i + 3];
+        }
+        var sprite = document.createElement("canvas");
+        sprite.width = sprite.height = this.tileSize;
+        sprite.getContext("2d").putImageData(colourData, 0, 0);
+        return sprite;
+    };
+    SpriteSheet.prototype.storeSprites = function (callback) {
+        if (callback === void 0) { callback = null; }
+        this.spritesPerRow = ((this.subsheet.w === 0 || this.subsheet.h === 0) ? (this.image.width / this.tileSize) : this.subsheet.w);
+        this.spritesPerCol = ((this.subsheet.w === 0 || this.subsheet.h === 0) ? (this.image.height / this.tileSize) : this.subsheet.h);
+        var sprite;
+        for (var y = 0; y < this.spritesPerCol; y++) {
+            for (var x = 0; x < this.spritesPerRow; x++) {
+                sprite = this.sprites[x + (y * this.spritesPerRow)] = document.createElement("canvas");
+                sprite.width = this.tileSize;
+                sprite.height = this.tileSize;
+                sprite.getContext("2d").drawImage(this.image, ((this.tileSize + this.gutter) * x) + this.offset.x, ((this.tileSize + this.gutter) * y) + this.offset.y, this.tileSize, this.tileSize, 0, 0, this.tileSize, this.tileSize);
+            }
+        }
+    };
+    return SpriteSheet;
+}());
+var SpriteSheetManager;
+(function (SpriteSheetManager) {
+    var sheets = {};
+    function storeSheet(sheet) {
+        sheets[sheet.name] = sheet;
+    }
+    SpriteSheetManager.storeSheet = storeSheet;
+    function spriteSheet(name) {
+        return sheets[name];
+    }
+    SpriteSheetManager.spriteSheet = spriteSheet;
+})(SpriteSheetManager || (SpriteSheetManager = {}));
+var Game = (function () {
+    function Game(window, canvas) {
+        this._canvas = canvas;
+        this._window = window;
+        ImageCache.Loader.add("sheet", "./sheet.png");
+        ImageCache.Loader.load(this.init.bind(this));
+    }
+    Game.prototype.init = function () {
+        console.log('game init');
+        this.engine = new Engine(this._canvas);
+        this.bindings();
+        this.engine.run();
+    };
+    Game.prototype.bindings = function () {
+        console.log('game bindings');
+        this._window.addEventListener("resize", this.onResize.bind(this), false);
+        this.onResize();
+        this._window.onkeydown = Input.KB.keyDown;
+        this._window.onkeyup = Input.KB.keyUp;
+        this._window.onblur = this.engine.pause.bind(this.engine);
+        this._window.onfocus = this.engine.unpause.bind(this.engine);
+    };
+    Game.prototype.onResize = function () {
+        var scaleX = window.innerWidth / this._canvas.width;
+        var scaleY = window.innerHeight / this._canvas.height;
+        var scaleToFit = Math.min(scaleX, scaleY) | 0;
+        scaleToFit = (scaleToFit <= 0) ? 1 : scaleToFit;
+        var size = [this._canvas.width * scaleToFit, this._canvas.height * scaleToFit];
+        var offset = [(window.innerWidth - size[0]) / 2, (window.innerHeight - size[1]) / 2];
+        var stage = document.getElementById("stage");
+        var rule = "translate(" + (~~offset[0]) + "px, " + (~~offset[1]) + "px) scale(" + (~~scaleToFit) + ")";
+        stage.style.transform = rule;
+        stage.style.webkitTransform = rule;
+    };
+    return Game;
+}());
+(function (Game) {
+    Game.GAME_PIXEL_WIDTH = 512;
+    Game.GAME_PIXEL_HEIGHT = 288;
+    Game.TILE_SIZE = 8;
+})(Game || (Game = {}));
+var GameState = (function () {
+    function GameState(game) {
+        this.game = game;
+        this.redraw = true;
+        this.requestingClear = false;
+    }
+    GameState.prototype.transition = function () {
+        this.redraw = true;
+        this.update(0);
+    };
+    return GameState;
+}());
+var GameStateManager = (function () {
+    function GameStateManager() {
+    }
+    GameStateManager.prototype.register = function (stateName, gameState) {
+        this.stateCollection[stateName] = gameState;
+    };
+    Object.defineProperty(GameStateManager.prototype, "current", {
+        get: function () {
+            return this.stateStack[this.stateStack.length];
+        },
+        enumerable: true,
+        configurable: true
+    });
+    GameStateManager.prototype.push = function (stateName) {
+        this.stateStack.push(this.stateCollection[stateName]);
+    };
+    GameStateManager.prototype.pop = function () {
+        this.stateStack.pop();
+    };
+    return GameStateManager;
+}());

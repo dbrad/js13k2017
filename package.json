@@ -1,0 +1,27 @@
+{
+  "name": "js13k2017",
+  "version": "0.0.1",
+  "description": "Entry for js13k 2017 competition",
+  "main" : "gulpfile.js",
+  "author": "David Brad",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dbrad/js13k2017"
+  },
+  "bugs": {
+    "url": "https://github.com/dbrad/js13k2017/issues"
+  },
+  "keywords": [
+    "js13k"
+  ],
+  "dependencies": {
+    "gulp": "*",
+    "gulp-csso": "*",
+    "gulp-htmlmin": "*",
+    "gulp-imagemin": "*",
+    "gulp-uglify": "*",
+    "gulp-zip": "*"
+  },
+
+  "license": "MIT"
+}
