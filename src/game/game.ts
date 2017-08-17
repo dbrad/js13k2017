@@ -1,3 +1,6 @@
+/// <reference path="../engine/engine.ts" />
+/// <reference path="../engine/input/input.ts" />
+
 class Game {
     private _canvas: HTMLCanvasElement;
     private _window: Window;
@@ -10,15 +13,15 @@ class Game {
         ImageCache.Loader.load(this.init.bind(this))
     }
     init(): void {
-        console.log('game init');
         this.engine = new Engine(this._canvas);
         this.bindings();
+        this.engine.gsm.register('main-menu', new MainMenu(this));
+        this.engine.gsm.register('game-screen', new GameScreen(this));
+        this.engine.gsm.push('main-menu');
         this.engine.run();
     }
 
     private bindings(): void {
-        console.log('game bindings');
-        
         this._window.addEventListener("resize", this.onResize.bind(this), false);
         this.onResize();
         this._window.onkeydown = Input.KB.keyDown;

@@ -1,3 +1,5 @@
+/// <reference path="./state/game-state-manager.ts" />
+
 class Engine {
     public gsm: GameStateManager;
 
@@ -34,13 +36,22 @@ class Engine {
     redraw: boolean = false;
     draw(): void {
         if(this.clearScreen || this.gsm.current.requestingClear) {
+            this.ctx.clearRect(0, 0, this.screen.width, this.screen.height);
+            this.bufferCtx.clearRect(0, 0, this.screen.width, this.screen.height);
             this.clearScreen = this.gsm.current.requestingClear = false;
         }
         if(!this.systemPause && (this.redraw || this.gsm.current.redraw)) {
             this.gsm.current.draw(this.bufferCtx);
+            this.ctx.drawImage(
+                this.buffer,
+                0, 0, Game.GAME_PIXEL_WIDTH, Game.GAME_PIXEL_HEIGHT,
+                0, 0, Game.GAME_PIXEL_WIDTH, Game.GAME_PIXEL_HEIGHT);
             this.redraw = this.gsm.current.redraw = false;
         } else if (this.systemPause && this.redraw) {
-            // System pause overlay
+            this.ctx.globalAlpha = 0.7;
+            this.ctx.fillStyle = "black";
+            this.ctx.fillRect(0, 0, Game.GAME_PIXEL_WIDTH, Game.GAME_PIXEL_HEIGHT);
+            this.ctx.globalAlpha = 1.0;
             this.redraw = this.gsm.current.redraw = false;
         }
     }
@@ -64,11 +75,11 @@ class Engine {
     
     private systemPause: boolean = false;
     pause(): void {
-        console.log('engine paused');
         this.systemPause = true;
+        this.redraw = true;
     }
     unpause(): void {
-        console.log('engine unpaused');
         this.systemPause = false;        
+        this.gsm.current.redraw = this.clearScreen = true;
     }
 }

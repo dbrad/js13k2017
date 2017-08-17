@@ -11,7 +11,12 @@ abstract class GameState {
     public redraw: boolean;
     public requestingClear: boolean;
 
-    transition(): void {
+    transitionIn(): void {
+        this.redraw = true;
+        this.update(0);
+    }
+
+    transitionOut(): void {
         this.redraw = true;
         this.update(0);
     }

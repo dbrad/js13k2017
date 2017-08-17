@@ -8,6 +8,186 @@ var __extends = (this && this.__extends) || (function () {
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
 })();
+var Input;
+(function (Input) {
+    var KB;
+    (function (KB) {
+        var KEY;
+        (function (KEY) {
+            KEY[KEY["A"] = 65] = "A";
+            KEY[KEY["D"] = 68] = "D";
+            KEY[KEY["W"] = 87] = "W";
+            KEY[KEY["S"] = 83] = "S";
+            KEY[KEY["LEFT"] = 37] = "LEFT";
+            KEY[KEY["RIGHT"] = 39] = "RIGHT";
+            KEY[KEY["UP"] = 38] = "UP";
+            KEY[KEY["DOWN"] = 40] = "DOWN";
+            KEY[KEY["ENTER"] = 13] = "ENTER";
+            KEY[KEY["SPACE"] = 32] = "SPACE";
+            KEY[KEY["NUM_1"] = 49] = "NUM_1";
+            KEY[KEY["NUM_2"] = 50] = "NUM_2";
+            KEY[KEY["NUM_3"] = 51] = "NUM_3";
+            KEY[KEY["NUM_4"] = 52] = "NUM_4";
+            KEY[KEY["NUM_5"] = 53] = "NUM_5";
+            KEY[KEY["C"] = 67] = "C";
+        })(KEY = KB.KEY || (KB.KEY = {}));
+        var META_KEY;
+        (function (META_KEY) {
+            META_KEY[META_KEY["UP"] = 0] = "UP";
+            META_KEY[META_KEY["DOWN"] = 1] = "DOWN";
+            META_KEY[META_KEY["LEFT"] = 2] = "LEFT";
+            META_KEY[META_KEY["RIGHT"] = 3] = "RIGHT";
+            META_KEY[META_KEY["ACTION"] = 4] = "ACTION";
+        })(META_KEY = KB.META_KEY || (KB.META_KEY = {}));
+        KB.KEY_BIND = [];
+        KB.KEY_BIND[META_KEY.UP] = [KEY.W, KEY.UP];
+        KB.KEY_BIND[META_KEY.DOWN] = [KEY.S, KEY.DOWN];
+        KB.KEY_BIND[META_KEY.LEFT] = [KEY.A, KEY.LEFT];
+        KB.KEY_BIND[META_KEY.RIGHT] = [KEY.D, KEY.RIGHT];
+        KB.KEY_BIND[META_KEY.ACTION] = [KEY.SPACE, KEY.ENTER];
+        var _isDown = [];
+        var _isUp = [];
+        var _wasDown = [];
+        for (var i = 0; i < 256; i++) {
+            _isUp[i] = true;
+        }
+        function isDown(keyCode) {
+            return (_isDown[keyCode]);
+        }
+        KB.isDown = isDown;
+        function wasDown(keyCode) {
+            var result = _wasDown[keyCode];
+            _wasDown[keyCode] = false;
+            return result;
+        }
+        KB.wasDown = wasDown;
+        function clearInputQueue() {
+            for (var key in _wasDown) {
+                _wasDown[key] = false;
+            }
+        }
+        KB.clearInputQueue = clearInputQueue;
+        function keyDown(event) {
+            var keyCode = event.which;
+            _isDown[keyCode] = true;
+            if (_isUp[keyCode]) {
+                _wasDown[keyCode] = true;
+            }
+            _isUp[keyCode] = false;
+        }
+        KB.keyDown = keyDown;
+        function keyUp(event) {
+            var keyCode = event.which;
+            _isDown[keyCode] = false;
+            _isUp[keyCode] = true;
+        }
+        KB.keyUp = keyUp;
+        function isBindDown(key) {
+            var result = false;
+            for (var _i = 0, _a = KB.KEY_BIND[key]; _i < _a.length; _i++) {
+                var k = _a[_i];
+                result = result || _isDown[k];
+            }
+            return result;
+        }
+        KB.isBindDown = isBindDown;
+        function wasBindDown(key) {
+            var result = false;
+            for (var _i = 0, _a = KB.KEY_BIND[key]; _i < _a.length; _i++) {
+                var k = _a[_i];
+                result = result || _wasDown[k];
+                _wasDown[k] = false;
+            }
+            return result;
+        }
+        KB.wasBindDown = wasBindDown;
+    })(KB = Input.KB || (Input.KB = {}));
+})(Input || (Input = {}));
+var Game = (function () {
+    function Game(window, canvas) {
+        this._canvas = canvas;
+        this._window = window;
+        ImageCache.Loader.add("sheet", "./sheet.png");
+        ImageCache.Loader.load(this.init.bind(this));
+    }
+    Game.prototype.init = function () {
+        this.engine = new Engine(this._canvas);
+        this.bindings();
+        this.engine.gsm.register('main-menu', new MainMenu(this));
+        this.engine.gsm.register('game-screen', new GameScreen(this));
+        this.engine.gsm.push('main-menu');
+        this.engine.run();
+    };
+    Game.prototype.bindings = function () {
+        this._window.addEventListener("resize", this.onResize.bind(this), false);
+        this.onResize();
+        this._window.onkeydown = Input.KB.keyDown;
+        this._window.onkeyup = Input.KB.keyUp;
+        this._window.onblur = this.engine.pause.bind(this.engine);
+        this._window.onfocus = this.engine.unpause.bind(this.engine);
+    };
+    Game.prototype.onResize = function () {
+        var scaleX = window.innerWidth / this._canvas.width;
+        var scaleY = window.innerHeight / this._canvas.height;
+        var scaleToFit = Math.min(scaleX, scaleY) | 0;
+        scaleToFit = (scaleToFit <= 0) ? 1 : scaleToFit;
+        var size = [this._canvas.width * scaleToFit, this._canvas.height * scaleToFit];
+        var offset = [(window.innerWidth - size[0]) / 2, (window.innerHeight - size[1]) / 2];
+        var stage = document.getElementById("stage");
+        var rule = "translate(" + (~~offset[0]) + "px, " + (~~offset[1]) + "px) scale(" + (~~scaleToFit) + ")";
+        stage.style.transform = rule;
+        stage.style.webkitTransform = rule;
+    };
+    return Game;
+}());
+(function (Game) {
+    Game.GAME_PIXEL_WIDTH = 512;
+    Game.GAME_PIXEL_HEIGHT = 288;
+    Game.TILE_SIZE = 8;
+})(Game || (Game = {}));
+var GameState = (function () {
+    function GameState(game) {
+        this.game = game;
+        this.redraw = true;
+        this.requestingClear = false;
+    }
+    GameState.prototype.transitionIn = function () {
+        this.redraw = true;
+        this.update(0);
+    };
+    GameState.prototype.transitionOut = function () {
+        this.redraw = true;
+        this.update(0);
+    };
+    return GameState;
+}());
+var GameStateManager = (function () {
+    function GameStateManager() {
+        this.stateCollection = {};
+        this.stateStack = [];
+    }
+    GameStateManager.prototype.register = function (stateName, gameState) {
+        this.stateCollection[stateName] = gameState;
+    };
+    Object.defineProperty(GameStateManager.prototype, "current", {
+        get: function () {
+            return this.stateStack[this.stateStack.length - 1];
+        },
+        enumerable: true,
+        configurable: true
+    });
+    GameStateManager.prototype.push = function (stateName) {
+        this.current && this.current.transitionOut();
+        this.stateStack.push(this.stateCollection[stateName]);
+        this.current && this.current.transitionIn();
+    };
+    GameStateManager.prototype.pop = function () {
+        this.current && this.current.transitionOut();
+        this.stateStack.pop();
+        this.current && this.current.transitionIn();
+    };
+    return GameStateManager;
+}());
 var Engine = (function () {
     function Engine(canvas) {
         this.clearScreen = false;
@@ -32,13 +212,20 @@ var Engine = (function () {
     };
     Engine.prototype.draw = function () {
         if (this.clearScreen || this.gsm.current.requestingClear) {
+            this.ctx.clearRect(0, 0, this.screen.width, this.screen.height);
+            this.bufferCtx.clearRect(0, 0, this.screen.width, this.screen.height);
             this.clearScreen = this.gsm.current.requestingClear = false;
         }
         if (!this.systemPause && (this.redraw || this.gsm.current.redraw)) {
             this.gsm.current.draw(this.bufferCtx);
+            this.ctx.drawImage(this.buffer, 0, 0, Game.GAME_PIXEL_WIDTH, Game.GAME_PIXEL_HEIGHT, 0, 0, Game.GAME_PIXEL_WIDTH, Game.GAME_PIXEL_HEIGHT);
             this.redraw = this.gsm.current.redraw = false;
         }
         else if (this.systemPause && this.redraw) {
+            this.ctx.globalAlpha = 0.7;
+            this.ctx.fillStyle = "black";
+            this.ctx.fillRect(0, 0, Game.GAME_PIXEL_WIDTH, Game.GAME_PIXEL_HEIGHT);
+            this.ctx.globalAlpha = 1.0;
             this.redraw = this.gsm.current.redraw = false;
         }
     };
@@ -57,12 +244,12 @@ var Engine = (function () {
         window.cancelAnimationFrame(this.loopHandle);
     };
     Engine.prototype.pause = function () {
-        console.log('engine paused');
         this.systemPause = true;
+        this.redraw = true;
     };
     Engine.prototype.unpause = function () {
-        console.log('engine unpaused');
         this.systemPause = false;
+        this.gsm.current.redraw = this.clearScreen = true;
     };
     return Engine;
 }());
@@ -195,101 +382,6 @@ var Entity = (function () {
     };
     return Entity;
 }());
-var Input;
-(function (Input) {
-    var KB;
-    (function (KB) {
-        var KEY;
-        (function (KEY) {
-            KEY[KEY["A"] = 65] = "A";
-            KEY[KEY["D"] = 68] = "D";
-            KEY[KEY["W"] = 87] = "W";
-            KEY[KEY["S"] = 83] = "S";
-            KEY[KEY["LEFT"] = 37] = "LEFT";
-            KEY[KEY["RIGHT"] = 39] = "RIGHT";
-            KEY[KEY["UP"] = 38] = "UP";
-            KEY[KEY["DOWN"] = 40] = "DOWN";
-            KEY[KEY["ENTER"] = 13] = "ENTER";
-            KEY[KEY["SPACE"] = 32] = "SPACE";
-            KEY[KEY["NUM_1"] = 49] = "NUM_1";
-            KEY[KEY["NUM_2"] = 50] = "NUM_2";
-            KEY[KEY["NUM_3"] = 51] = "NUM_3";
-            KEY[KEY["NUM_4"] = 52] = "NUM_4";
-            KEY[KEY["NUM_5"] = 53] = "NUM_5";
-            KEY[KEY["C"] = 67] = "C";
-        })(KEY = KB.KEY || (KB.KEY = {}));
-        var META_KEY;
-        (function (META_KEY) {
-            META_KEY[META_KEY["UP"] = 0] = "UP";
-            META_KEY[META_KEY["DOWN"] = 1] = "DOWN";
-            META_KEY[META_KEY["LEFT"] = 2] = "LEFT";
-            META_KEY[META_KEY["RIGHT"] = 3] = "RIGHT";
-            META_KEY[META_KEY["ACTION"] = 4] = "ACTION";
-        })(META_KEY = KB.META_KEY || (KB.META_KEY = {}));
-        KB.KEY_BIND = [];
-        KB.KEY_BIND[META_KEY.UP] = [KEY.W, KEY.UP];
-        KB.KEY_BIND[META_KEY.DOWN] = [KEY.S, KEY.DOWN];
-        KB.KEY_BIND[META_KEY.LEFT] = [KEY.A, KEY.LEFT];
-        KB.KEY_BIND[META_KEY.RIGHT] = [KEY.D, KEY.RIGHT];
-        KB.KEY_BIND[META_KEY.ACTION] = [KEY.SPACE, KEY.ENTER];
-        var _isDown = [];
-        var _isUp = [];
-        var _wasDown = [];
-        for (var i = 0; i < 256; i++) {
-            _isUp[i] = true;
-        }
-        function isDown(keyCode) {
-            return (_isDown[keyCode]);
-        }
-        KB.isDown = isDown;
-        function wasDown(keyCode) {
-            var result = _wasDown[keyCode];
-            _wasDown[keyCode] = false;
-            return result;
-        }
-        KB.wasDown = wasDown;
-        function clearInputQueue() {
-            for (var key in _wasDown) {
-                _wasDown[key] = false;
-            }
-        }
-        KB.clearInputQueue = clearInputQueue;
-        function keyDown(event) {
-            var keyCode = event.which;
-            _isDown[keyCode] = true;
-            if (_isUp[keyCode]) {
-                _wasDown[keyCode] = true;
-            }
-            _isUp[keyCode] = false;
-        }
-        KB.keyDown = keyDown;
-        function keyUp(event) {
-            var keyCode = event.which;
-            _isDown[keyCode] = false;
-            _isUp[keyCode] = true;
-        }
-        KB.keyUp = keyUp;
-        function isBindDown(key) {
-            var result = false;
-            for (var _i = 0, _a = KB.KEY_BIND[key]; _i < _a.length; _i++) {
-                var k = _a[_i];
-                result = result || _isDown[k];
-            }
-            return result;
-        }
-        KB.isBindDown = isBindDown;
-        function wasBindDown(key) {
-            var result = false;
-            for (var _i = 0, _a = KB.KEY_BIND[key]; _i < _a.length; _i++) {
-                var k = _a[_i];
-                result = result || _wasDown[k];
-                _wasDown[k] = false;
-            }
-            return result;
-        }
-        KB.wasBindDown = wasBindDown;
-    })(KB = Input.KB || (Input.KB = {}));
-})(Input || (Input = {}));
 var ImageCache;
 (function (ImageCache) {
     var cache = {};
@@ -378,77 +470,93 @@ var SpriteSheetManager;
     }
     SpriteSheetManager.spriteSheet = spriteSheet;
 })(SpriteSheetManager || (SpriteSheetManager = {}));
-var Game = (function () {
-    function Game(window, canvas) {
-        this._canvas = canvas;
-        this._window = window;
-        ImageCache.Loader.add("sheet", "./sheet.png");
-        ImageCache.Loader.load(this.init.bind(this));
+var GameScreen = (function (_super) {
+    __extends(GameScreen, _super);
+    function GameScreen(game) {
+        return _super.call(this, game) || this;
     }
-    Game.prototype.init = function () {
-        console.log('game init');
-        this.engine = new Engine(this._canvas);
-        this.bindings();
-        this.engine.run();
+    GameScreen.prototype.transitionIn = function () {
+        this.requestingClear = true;
+        _super.prototype.transitionIn.call(this);
     };
-    Game.prototype.bindings = function () {
-        console.log('game bindings');
-        this._window.addEventListener("resize", this.onResize.bind(this), false);
-        this.onResize();
-        this._window.onkeydown = Input.KB.keyDown;
-        this._window.onkeyup = Input.KB.keyUp;
-        this._window.onblur = this.engine.pause.bind(this.engine);
-        this._window.onfocus = this.engine.unpause.bind(this.engine);
+    GameScreen.prototype.transitionOut = function () {
+        _super.prototype.transitionOut.call(this);
     };
-    Game.prototype.onResize = function () {
-        var scaleX = window.innerWidth / this._canvas.width;
-        var scaleY = window.innerHeight / this._canvas.height;
-        var scaleToFit = Math.min(scaleX, scaleY) | 0;
-        scaleToFit = (scaleToFit <= 0) ? 1 : scaleToFit;
-        var size = [this._canvas.width * scaleToFit, this._canvas.height * scaleToFit];
-        var offset = [(window.innerWidth - size[0]) / 2, (window.innerHeight - size[1]) / 2];
-        var stage = document.getElementById("stage");
-        var rule = "translate(" + (~~offset[0]) + "px, " + (~~offset[1]) + "px) scale(" + (~~scaleToFit) + ")";
-        stage.style.transform = rule;
-        stage.style.webkitTransform = rule;
+    GameScreen.prototype.update = function (delta) {
+        if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
+            this.game.engine.gsm.pop();
+        }
     };
-    return Game;
-}());
-(function (Game) {
-    Game.GAME_PIXEL_WIDTH = 512;
-    Game.GAME_PIXEL_HEIGHT = 288;
-    Game.TILE_SIZE = 8;
-})(Game || (Game = {}));
-var GameState = (function () {
-    function GameState(game) {
-        this.game = game;
-        this.redraw = true;
-        this.requestingClear = false;
+    GameScreen.prototype.draw = function (ctx) {
+        if (this.redraw) {
+            ctx.globalAlpha = 1.0;
+            ctx.fillStyle = "blue";
+            ctx.fillRect(0, 0, ~~(Game.GAME_PIXEL_WIDTH), ~~(Game.GAME_PIXEL_HEIGHT));
+            ctx.globalAlpha = 0.75;
+            ctx.textAlign = "center";
+            ctx.fillStyle = ctx.strokeStyle = "yellow";
+            ctx.lineWidth = 2;
+            ctx.fillText("This is the game screen, baby.", ~~((Game.GAME_PIXEL_WIDTH / 2) | 0), ~~(64));
+        }
+    };
+    return GameScreen;
+}(GameState));
+var MainMenu = (function (_super) {
+    __extends(MainMenu, _super);
+    function MainMenu(game) {
+        var _this = _super.call(this, game) || this;
+        _this.selectedIndex = 0;
+        _this.menuOptions = ["Start", "Options", "Exit"];
+        return _this;
     }
-    GameState.prototype.transition = function () {
-        this.redraw = true;
-        this.update(0);
+    MainMenu.prototype.transitionIn = function () {
+        this.requestingClear = true;
+        _super.prototype.transitionIn.call(this);
     };
-    return GameState;
-}());
-var GameStateManager = (function () {
-    function GameStateManager() {
-    }
-    GameStateManager.prototype.register = function (stateName, gameState) {
-        this.stateCollection[stateName] = gameState;
+    MainMenu.prototype.transitionOut = function () {
+        this.requestingClear = true;
+        _super.prototype.transitionIn.call(this);
     };
-    Object.defineProperty(GameStateManager.prototype, "current", {
-        get: function () {
-            return this.stateStack[this.stateStack.length];
-        },
-        enumerable: true,
-        configurable: true
-    });
-    GameStateManager.prototype.push = function (stateName) {
-        this.stateStack.push(this.stateCollection[stateName]);
+    MainMenu.prototype.update = function (delta) {
+        if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
+            switch (this.selectedIndex) {
+                case 0:
+                    this.game.engine.gsm.push('game-screen');
+                    break;
+                case 1:
+                    break;
+                default:
+                    window.location.reload();
+                    break;
+            }
+        }
+        if (Input.KB.wasBindDown(Input.KB.META_KEY.DOWN)) {
+            this.selectedIndex = (this.selectedIndex + 1) % this.menuOptions.length;
+            this.redraw = this.requestingClear = true;
+        }
+        if (Input.KB.wasBindDown(Input.KB.META_KEY.UP)) {
+            if (this.selectedIndex === 0) {
+                this.selectedIndex = this.menuOptions.length - 1;
+            }
+            else {
+                this.selectedIndex = (this.selectedIndex - 1) % 3;
+            }
+            this.redraw = this.requestingClear = true;
+        }
     };
-    GameStateManager.prototype.pop = function () {
-        this.stateStack.pop();
+    MainMenu.prototype.draw = function (ctx) {
+        if (this.redraw) {
+            ctx.globalAlpha = 1.0;
+            ctx.font = "18px Verdana";
+            ctx.textAlign = "center";
+            ctx.fillStyle = ctx.strokeStyle = "black";
+            ctx.lineWidth = 2;
+            ctx.fillText("js13k 2017", ~~((Game.GAME_PIXEL_WIDTH / 2) | 0), ~~(64));
+            for (var i = 0; i < this.menuOptions.length; i++) {
+                ctx.fillText(this.menuOptions[i], ~~((Game.GAME_PIXEL_WIDTH / 2) | 0), ~~(((Game.GAME_PIXEL_HEIGHT) | 0) - (this.menuOptions.length * 36) + (i * 36)));
+            }
+            ctx.strokeRect(~~(Game.GAME_PIXEL_WIDTH / 2 - 75), ~~((Game.GAME_PIXEL_HEIGHT) - ((this.menuOptions.length) * 36) + (this.selectedIndex * 36) - 18), 150, 24);
+        }
     };
-    return GameStateManager;
-}());
+    return MainMenu;
+}(GameState));
