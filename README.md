@@ -1,5 +1,5 @@
 # js13k Competition 2017
-This is David Brad's entry for the js13k competition for 2017(http://http://js13kgames.com/)
+This is David Brad's entry for the js13k competition for 2017(https://js13kgames.com/)
 <br><br>
 
 # Notes about the workflow for this project
