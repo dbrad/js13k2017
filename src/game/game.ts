@@ -4,11 +4,14 @@
 class Game {
     private _canvas: HTMLCanvasElement;
     private _window: Window;
+    private _audioContext: AudioContext;
     public engine: Engine
+    public audioEngine: AudioEngine;
 
-    constructor(window: Window, canvas: HTMLCanvasElement) {
+    constructor(window: Window, canvas: HTMLCanvasElement, audioContext: AudioContext) {
         this._canvas = canvas;
         this._window = window;
+        this._audioContext = audioContext;
         ImageCache.Loader.add("sheet", "./sheet.png");
         ImageCache.Loader.load(this.init.bind(this))
     }
@@ -28,6 +31,7 @@ class Game {
         this._window.onkeyup = Input.KB.keyUp;
         this._window.onblur = this.engine.pause.bind(this.engine);
         this._window.onfocus = this.engine.unpause.bind(this.engine);
+        this.audioEngine = new AudioEngine(this._audioContext);
     }
 
     private onResize(): void {

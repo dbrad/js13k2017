@@ -59,7 +59,7 @@ class Engine {
     private loopHandle: number;
     private then: number;    
     private loop(): void {
-        let now: number = performance.now();
+        let now: number = window.performance.now();
         let delta = (now - this.then);
         this.then = now;
         this.update(delta);

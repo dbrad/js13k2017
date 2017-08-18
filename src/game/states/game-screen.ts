@@ -19,6 +19,9 @@ class GameScreen extends GameState {
         if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
             this.game.engine.gsm.pop();
         }
+        if (Input.KB.wasBindDown(Input.KB.META_KEY.UP)) {
+            this.game.audioEngine.beep(new Beep(300, 2000, 'square', 1, 1));
+        }
     }
 
     draw(ctx: Context2D): void {

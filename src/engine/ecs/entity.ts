@@ -1,21 +1,21 @@
 /// <reference path="./component-dictionary.ts" />
 /// <reference path="./component.ts" />
 
-class Entity {
+class GameEntity {
     public components: ComponentDictionary;
     public id: number;
     private static autoID: number;
 
     constructor() {
         this.components = {};
-        if (!Entity.autoID) {
-            Entity.autoID = 0;
+        if (!GameEntity.autoID) {
+            GameEntity.autoID = 0;
         }
-        this.id = Entity.autoID++;
+        this.id = GameEntity.autoID++;
         return this;
     }
 
-    addComponent(component: Component<any>): Entity {
+    addComponent(component: Component<any>): GameEntity {
         this.components[component.name] = component;
         return this;
     }

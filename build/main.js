@@ -104,9 +104,10 @@ var Input;
     })(KB = Input.KB || (Input.KB = {}));
 })(Input || (Input = {}));
 var Game = (function () {
-    function Game(window, canvas) {
+    function Game(window, canvas, audioContext) {
         this._canvas = canvas;
         this._window = window;
+        this._audioContext = audioContext;
         ImageCache.Loader.add("sheet", "./sheet.png");
         ImageCache.Loader.load(this.init.bind(this));
     }
@@ -125,6 +126,7 @@ var Game = (function () {
         this._window.onkeyup = Input.KB.keyUp;
         this._window.onblur = this.engine.pause.bind(this.engine);
         this._window.onfocus = this.engine.unpause.bind(this.engine);
+        this.audioEngine = new AudioEngine(this._audioContext);
     };
     Game.prototype.onResize = function () {
         var scaleX = window.innerWidth / this._canvas.width;
@@ -230,7 +232,7 @@ var Engine = (function () {
         }
     };
     Engine.prototype.loop = function () {
-        var now = performance.now();
+        var now = window.performance.now();
         var delta = (now - this.then);
         this.then = now;
         this.update(delta);
@@ -253,24 +255,37 @@ var Engine = (function () {
     };
     return Engine;
 }());
-var AudioPool = (function () {
-    function AudioPool(sound, maxSize) {
-        if (maxSize === void 0) { maxSize = 1; }
-        this.pool = [];
-        this.index = 0;
-        this.maxSize = maxSize;
-        for (var i = 0; i < this.maxSize; i++) {
-            this.pool[i] = new Audio(sound);
-            this.pool[i].load();
-        }
+var AudioEngine = (function () {
+    function AudioEngine(audioContext) {
+        this.audioContext = audioContext;
     }
-    AudioPool.prototype.play = function () {
-        if (this.pool[this.index].currentTime === 0 || this.pool[this.index].ended) {
-            this.pool[this.index].play();
-        }
-        this.index = (this.index + 1) % this.maxSize;
+    AudioEngine.prototype.beep = function (beep) {
+        var ctx = this.audioContext;
+        var osc = ctx.createOscillator();
+        var gainOsc = ctx.createGain();
+        var vol = beep.vol || 1;
+        osc.type = beep.shape;
+        osc.frequency.setValueAtTime(beep.freq1, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(beep.freq2, ctx.currentTime + beep.dur / 2);
+        osc.frequency.exponentialRampToValueAtTime(beep.freq1, ctx.currentTime + beep.dur);
+        gainOsc.gain.setValueAtTime(vol, ctx.currentTime);
+        gainOsc.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + beep.dur);
+        osc.connect(gainOsc);
+        gainOsc.connect(ctx.destination);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + beep.dur);
     };
-    return AudioPool;
+    return AudioEngine;
+}());
+var Beep = (function () {
+    function Beep(freq1, freq2, shape, dur, vol) {
+        this.freq1 = freq1;
+        this.freq2 = freq2;
+        this.shape = shape;
+        this.dur = dur;
+        this.vol = vol;
+    }
+    return Beep;
 }());
 var Component = (function () {
     function Component(name) {
@@ -367,20 +382,20 @@ var ECS;
     }(Component));
     ECS.Flag = Flag;
 })(ECS || (ECS = {}));
-var Entity = (function () {
-    function Entity() {
+var GameEntity = (function () {
+    function GameEntity() {
         this.components = {};
-        if (!Entity.autoID) {
-            Entity.autoID = 0;
+        if (!GameEntity.autoID) {
+            GameEntity.autoID = 0;
         }
-        this.id = Entity.autoID++;
+        this.id = GameEntity.autoID++;
         return this;
     }
-    Entity.prototype.addComponent = function (component) {
+    GameEntity.prototype.addComponent = function (component) {
         this.components[component.name] = component;
         return this;
     };
-    return Entity;
+    return GameEntity;
 }());
 var ImageCache;
 (function (ImageCache) {
@@ -485,6 +500,9 @@ var GameScreen = (function (_super) {
     GameScreen.prototype.update = function (delta) {
         if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
             this.game.engine.gsm.pop();
+        }
+        if (Input.KB.wasBindDown(Input.KB.META_KEY.UP)) {
+            this.game.audioEngine.beep(new Beep(300, 2000, 'square', 1, 1));
         }
     };
     GameScreen.prototype.draw = function (ctx) {

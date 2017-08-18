@@ -16,11 +16,12 @@
   ],
   "dependencies": {
     "gulp": "*",
-    "gulp-csso": "*",
     "gulp-htmlmin": "*",
+    "gulp-zip": "*",
+    "gulp-clean-css" : "*",
+    "gulp-inline-base64": "*",
     "gulp-imagemin": "*",
-    "gulp-uglify": "*",
-    "gulp-zip": "*"
+    "gulp-uglify": "*"
   },
 
   "license": "MIT"

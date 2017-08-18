@@ -10,6 +10,6 @@
       <canvas id="gameCanvas" width="512" height="288"></canvas>
     </div>
     <script src="main.js" charset="utf-8"></script>
-    <script>window.onload=function(e){new Game(window, document.getElementById('gameCanvas'));}</script>
+    <script>window.onload=function(e){var audioCtx=new(window.AudioContext||window.webkitAudioContext)();new Game(window, document.getElementById('gameCanvas'), audioCtx);}</script>
   </body>
 </html>
