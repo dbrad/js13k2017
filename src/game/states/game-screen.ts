@@ -22,6 +22,15 @@ class GameScreen extends GameState {
         if (Input.KB.wasBindDown(Input.KB.META_KEY.UP)) {
             this.game.audioEngine.beep(new Beep(300, 2000, 'square', 1, 1));
         }
+        if (Input.KB.wasBindDown(Input.KB.META_KEY.DOWN)) {
+            this.game.audioEngine.beep(new Beep(150, 400, 'square', 1, 1));
+        }
+        if (Input.KB.wasBindDown(Input.KB.META_KEY.LEFT)) {
+            this.game.audioEngine.beep(new Beep(1500, 7500, 'square', 1, 1));
+        }
+        if (Input.KB.wasBindDown(Input.KB.META_KEY.RIGHT)) {
+            this.game.audioEngine.beep(new Beep(50, 3000, 'square', 1, 1));
+        }
     }
 
     draw(ctx: Context2D): void {

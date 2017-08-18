@@ -58,7 +58,7 @@ gulp.task('report', ['zip'], function (done) {
 gulp.task("watch", function () {
   gulp.watch('build/*.css', ['minify:css', 'zip', 'report']);
   gulp.watch('build/*.html', ['minify:html', 'zip', 'report']);
-  gulp.watch('build/js/*.js', ['uglify:js', 'zip', 'report']);
+  gulp.watch('build/**/*.js', ['uglify:js', 'zip', 'report']);
 });
 
 gulp.task('default', ['minify:html', 'uglify:js', 'minify:css', 'minify:png', 'zip', 'report', 'watch']);
