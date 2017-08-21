@@ -174,9 +174,9 @@ class Level {
                 ctx.fillStyle = "#000000"; // No cell at location
                 ctx.fillRect(tx * Game.T_S, ty * Game.T_S, Game.T_S, Game.T_S);
             } else if (t & TMASK.WALL) {
-                tile = SpriteSheetManager.spriteSheet("tiles").sprites[2];
+                tile = SpriteSheetManager.spriteSheet("tiles").sprites[1];
             } else if (t & TMASK.FLOOR) {
-                tile = SpriteSheetManager.spriteSheet("tiles").sprites[1];                            
+                tile = SpriteSheetManager.spriteSheet("tiles").sprites[0];                            
             }
             if(tile) {
                 ctx.drawImage(tile,

@@ -4,7 +4,7 @@ class GameScreen extends GameState {
     private level: Level;
     constructor(game: Game) {
         super(game);
-        this.camera = new Camera(new Pt(), new Dm(26, 16));
+        this.camera = new Camera(new Pt(), new Dm(26, 14));
         this.level = new Level(new Dm(250, 250));
     }
 

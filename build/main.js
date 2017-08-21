@@ -647,10 +647,10 @@ var Level = (function () {
                 ctx.fillRect(tx * Game.T_S, ty * Game.T_S, Game.T_S, Game.T_S);
             }
             else if (t & TMASK.WALL) {
-                tile = SpriteSheetManager.spriteSheet("tiles").sprites[2];
+                tile = SpriteSheetManager.spriteSheet("tiles").sprites[1];
             }
             else if (t & TMASK.FLOOR) {
-                tile = SpriteSheetManager.spriteSheet("tiles").sprites[1];
+                tile = SpriteSheetManager.spriteSheet("tiles").sprites[0];
             }
             if (tile) {
                 ctx.drawImage(tile, 0, 0, Game.T_S, Game.T_S, ~~(tx * Game.T_S), ~~(ty * Game.T_S), Game.T_S, Game.T_S);
@@ -746,7 +746,7 @@ var GameScreen = (function (_super) {
     __extends(GameScreen, _super);
     function GameScreen(game) {
         var _this = _super.call(this, game) || this;
-        _this.camera = new Camera(new Pt(), new Dm(26, 16));
+        _this.camera = new Camera(new Pt(), new Dm(26, 14));
         _this.level = new Level(new Dm(250, 250));
         return _this;
     }
