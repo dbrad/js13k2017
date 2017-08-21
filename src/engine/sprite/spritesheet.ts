@@ -51,6 +51,8 @@ class SpriteSheet {
         for (let y = 0; y < this.spritesPerCol; y++) {
             for (let x = 0; x < this.spritesPerRow; x++) {
                 sprite = this.sprites[x + (y * this.spritesPerRow)] = document.createElement("canvas");
+                (<Context2D>sprite.getContext("2d")).mozImageSmoothingEnabled = false;
+                (<Context2D>sprite.getContext("2d")).imageSmoothingEnabled = false;
                 sprite.width = this.tileSize;
                 sprite.height = this.tileSize;
                 sprite.getContext("2d").drawImage(this.image,

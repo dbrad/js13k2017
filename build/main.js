@@ -127,6 +127,7 @@ var Game = (function () {
         this._window.onblur = this.engine.pause.bind(this.engine);
         this._window.onfocus = this.engine.unpause.bind(this.engine);
         this.audioEngine = new AudioEngine(this._audioContext);
+        SpriteSheetManager.storeSheet(new SpriteSheet('sheet', 'tiles', 8, 0, new Dm(5, 1), new Pt(40, 0)));
     };
     Game.prototype.onResize = function () {
         var scaleX = window.innerWidth / this._canvas.width;
@@ -143,9 +144,11 @@ var Game = (function () {
     return Game;
 }());
 (function (Game) {
-    Game.GAME_PIXEL_WIDTH = 512;
-    Game.GAME_PIXEL_HEIGHT = 288;
-    Game.TILE_SIZE = 8;
+    Game.P_W = 512;
+    Game.P_H = 288;
+    Game.T_W = 64;
+    Game.T_H = 36;
+    Game.T_S = 8;
 })(Game || (Game = {}));
 var GameState = (function () {
     function GameState(game) {
@@ -199,12 +202,14 @@ var Engine = (function () {
         this.ctx = this.screen.getContext("2d");
         this.ctx.mozImageSmoothingEnabled = false;
         this.ctx.imageSmoothingEnabled = false;
+        this.ctx.webkitImageSmoothingEnabled = false;
         this.buffer = document.createElement("canvas");
         this.buffer.width = this.screen.width;
         this.buffer.height = this.screen.height;
         this.bufferCtx = this.buffer.getContext("2d");
         this.bufferCtx.mozImageSmoothingEnabled = false;
         this.bufferCtx.imageSmoothingEnabled = false;
+        this.bufferCtx.webkitImageSmoothingEnabled = false;
         this.gsm = new GameStateManager();
     }
     Engine.prototype.update = function (delta) {
@@ -220,13 +225,13 @@ var Engine = (function () {
         }
         if (!this.systemPause && (this.redraw || this.gsm.current.redraw)) {
             this.gsm.current.draw(this.bufferCtx);
-            this.ctx.drawImage(this.buffer, 0, 0, Game.GAME_PIXEL_WIDTH, Game.GAME_PIXEL_HEIGHT, 0, 0, Game.GAME_PIXEL_WIDTH, Game.GAME_PIXEL_HEIGHT);
+            this.ctx.drawImage(this.buffer, 0, 0, Game.P_W, Game.P_H, 0, 0, Game.P_W, Game.P_H);
             this.redraw = this.gsm.current.redraw = false;
         }
         else if (this.systemPause && this.redraw) {
             this.ctx.globalAlpha = 0.7;
             this.ctx.fillStyle = "black";
-            this.ctx.fillRect(0, 0, Game.GAME_PIXEL_WIDTH, Game.GAME_PIXEL_HEIGHT);
+            this.ctx.fillRect(0, 0, Game.P_W, Game.P_H);
             this.ctx.globalAlpha = 1.0;
             this.redraw = this.gsm.current.redraw = false;
         }
@@ -465,6 +470,8 @@ var SpriteSheet = (function () {
         for (var y = 0; y < this.spritesPerCol; y++) {
             for (var x = 0; x < this.spritesPerRow; x++) {
                 sprite = this.sprites[x + (y * this.spritesPerRow)] = document.createElement("canvas");
+                sprite.getContext("2d").mozImageSmoothingEnabled = false;
+                sprite.getContext("2d").imageSmoothingEnabled = false;
                 sprite.width = this.tileSize;
                 sprite.height = this.tileSize;
                 sprite.getContext("2d").drawImage(this.image, ((this.tileSize + this.gutter) * x) + this.offset.x, ((this.tileSize + this.gutter) * y) + this.offset.y, this.tileSize, this.tileSize, 0, 0, this.tileSize, this.tileSize);
@@ -485,10 +492,263 @@ var SpriteSheetManager;
     }
     SpriteSheetManager.spriteSheet = spriteSheet;
 })(SpriteSheetManager || (SpriteSheetManager = {}));
+var Camera = (function () {
+    function Camera(p, s) {
+        this.p = p;
+        this.s = s;
+    }
+    return Camera;
+}());
+var Tile = (function () {
+    function Tile() {
+    }
+    return Tile;
+}());
+var TMASK;
+(function (TMASK) {
+    TMASK.D = 1;
+    TMASK.V = 2;
+    TMASK.W = 4;
+    TMASK.O = 8;
+    TMASK.WALL = 16;
+    TMASK.FLOOR = 32;
+})(TMASK || (TMASK = {}));
+var Level = (function () {
+    function Level(s) {
+        if (s === void 0) { s = new Dm(50, 50); }
+        this.map = [];
+        this.rerender = true;
+        this.s = s;
+        this.renderCache = document.createElement("canvas");
+        this.renderCache.width = (s.w * Game.T_S);
+        this.renderCache.height = (s.h * Game.T_S);
+        this.renderCache.getContext("2d").mozImageSmoothingEnabled = false;
+        this.renderCache.getContext("2d").imageSmoothingEnabled = false;
+        this.generate();
+    }
+    Level.prototype.addEntity = function (entity, pos) {
+        entity.components["position"].value = pos;
+        this.entities.push(entity);
+    };
+    Level.prototype.calcOrigin = function (r, d) {
+        var N = d.w === WALL.N, S = d.w === WALL.S, E = d.w === WALL.E, W = d.w === WALL.W;
+        var x = d.p.x
+            - (N || S ? ~~(r.s.w / 2) : 0)
+            + (E ? 1 : W ? 0 : 0)
+            - (W ? r.s.w : 0);
+        var y = d.p.y
+            - (E || W ? ~~(r.s.h / 2) : 0)
+            + (N ? 0 : S ? 1 : 0)
+            - (N ? r.s.h : 0);
+        return new Pt(x, y);
+    };
+    Level.prototype.addDoor = function (r, d) {
+        this.map[d.p.x + (d.p.y * this.s.h)] = TMASK.FLOOR | TMASK.W;
+        if (d.w === WALL.N || d.w === WALL.S) {
+            this.map[(d.p.x - 1) + (d.p.y * this.s.h)] = TMASK.WALL;
+            this.map[(d.p.x + 1) + (d.p.y * this.s.h)] = TMASK.WALL;
+            this.map[d.p.x + ((d.p.y - 1) * this.s.h)] = TMASK.FLOOR | TMASK.W;
+            this.map[d.p.x + ((d.p.y + 1) * this.s.h)] = TMASK.FLOOR | TMASK.W;
+        }
+        else {
+            this.map[(d.p.x - 1) + (d.p.y * this.s.h)] = TMASK.FLOOR | TMASK.W;
+            this.map[(d.p.x + 1) + (d.p.y * this.s.h)] = TMASK.FLOOR | TMASK.W;
+            this.map[d.p.x + ((d.p.y - 1) * this.s.h)] = TMASK.WALL;
+            this.map[d.p.x + ((d.p.y + 1) * this.s.h)] = TMASK.WALL;
+        }
+    };
+    Level.prototype.scan = function (r, d) {
+        var result = true;
+        var N = d.w === WALL.N, S = d.w === WALL.S, E = d.w === WALL.E, W = d.w === WALL.W;
+        var o = this.calcOrigin(r, d);
+        var x = o.x;
+        var y = o.y;
+        var w = r.s.w + (E || W ? 1 : 0);
+        var h = r.s.h + (N || S ? 1 : 0);
+        result = (x > 0 && y > 0 && x < this.s.w - r.s.w && y < this.s.h - r.s.h);
+        for (var x0 = x; x0 < (x + w) && result; x0++) {
+            for (var y0 = y; y0 < (y + h) && result; y0++) {
+                result = result && this.map[x0 + (y0 * this.s.h)] === undefined;
+            }
+        }
+        return result;
+    };
+    Level.prototype.roomToMap = function (r, o) {
+        r.p.x = o.x;
+        r.p.y = o.y;
+        for (var mx = o.x, rx = 0; rx < r.s.w; rx++) {
+            for (var my = o.y, ry = 0; ry < r.s.h; ry++) {
+                if (rx === 0 || ry === 0 || rx === r.s.w - 1 || ry === r.s.h - 1)
+                    this.map[mx + (my * this.s.h)] = TMASK.WALL;
+                else
+                    this.map[mx + (my * this.s.h)] = TMASK.FLOOR | TMASK.W;
+                my++;
+            }
+            mx++;
+        }
+    };
+    Level.prototype.generate = function () {
+        var placedRooms = [];
+        var features = [];
+        var tRoom;
+        var tCorr;
+        var lRoom;
+        var tDW;
+        var tDWC;
+        var roomOrigin = new Pt();
+        tRoom = lRoom = Room.makeRoom(25, 25);
+        roomOrigin = new Pt(randomInt(0, this.s.w - tRoom.s.w), randomInt(0, this.s.h - tRoom.s.h));
+        placedRooms.push(tRoom);
+        this.roomToMap(tRoom, roomOrigin);
+        while (placedRooms.length > 0) {
+            while (lRoom.w.length > 0) {
+                tDW = lRoom.getRandomWall();
+                if (tDW === null)
+                    break;
+                tCorr = Room.makeCorridor((tDW.w === WALL.N || tDW.w === WALL.S));
+                if (this.scan(tCorr, tDW)) {
+                    roomOrigin = this.calcOrigin(tCorr, tDW);
+                    this.roomToMap(tCorr, roomOrigin);
+                    this.addDoor(tCorr, tDW);
+                    while (tCorr.w.length > 0) {
+                        tRoom = Room.makeRoom(25, 25);
+                        tDWC = tCorr.getRandomWall();
+                        if (tDWC === null)
+                            break;
+                        if (this.scan(tRoom, tDWC)) {
+                            roomOrigin = this.calcOrigin(tRoom, tDWC);
+                            this.roomToMap(tRoom, roomOrigin);
+                            this.addDoor(tRoom, tDWC);
+                            placedRooms.push(tRoom);
+                            lRoom = tRoom;
+                        }
+                    }
+                }
+            }
+            if (placedRooms.length > 1) {
+                placedRooms.pop();
+                lRoom = placedRooms[placedRooms.length - 1];
+            }
+            else {
+                placedRooms.pop();
+            }
+        }
+    };
+    Level.prototype.update = function (delta) {
+    };
+    Level.prototype.render = function (ctx) {
+        var _this = this;
+        this.map.forEach(function (t, i) {
+            var ty = ~~(i / _this.s.w);
+            var tx = i % _this.s.w;
+            var tile;
+            if (!t) {
+                ctx.fillStyle = "#000000";
+                ctx.fillRect(tx * Game.T_S, ty * Game.T_S, Game.T_S, Game.T_S);
+            }
+            else if (t & TMASK.WALL) {
+                tile = SpriteSheetManager.spriteSheet("tiles").sprites[2];
+            }
+            else if (t & TMASK.FLOOR) {
+                tile = SpriteSheetManager.spriteSheet("tiles").sprites[1];
+            }
+            if (tile) {
+                ctx.drawImage(tile, 0, 0, Game.T_S, Game.T_S, ~~(tx * Game.T_S), ~~(ty * Game.T_S), Game.T_S, Game.T_S);
+            }
+        });
+    };
+    Level.prototype.draw = function (ctx, camera) {
+        if (this.rerender) {
+            this.render(this.renderCache.getContext("2d"));
+            this.rerender = false;
+        }
+        if (camera.z) {
+            ctx.drawImage(this.renderCache, ~~(camera.p.x * Game.T_S), ~~(camera.p.y * Game.T_S), ~~(Game.T_W * Game.T_S), ~~(Game.T_H * Game.T_S), 0, 0, ~~(Game.T_W * Game.T_S), ~~(Game.T_H * Game.T_S));
+        }
+        else {
+            ctx.drawImage(this.renderCache, ~~(camera.p.x * Game.T_S), ~~(camera.p.y * Game.T_S), ~~(camera.s.w * Game.T_S), ~~(camera.s.h * Game.T_S), 0, 0, ~~((Game.T_W - 12) * Game.T_S), ~~((Game.T_H - 8) * Game.T_S));
+        }
+    };
+    return Level;
+}());
+function randomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+function shuffle(array) {
+    var currentIndex = array.length, temporaryValue, randomIndex;
+    while (0 !== currentIndex) {
+        randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex -= 1;
+        temporaryValue = array[currentIndex];
+        array[currentIndex] = array[randomIndex];
+        array[randomIndex] = temporaryValue;
+    }
+    return array;
+}
+var WALL;
+(function (WALL) {
+    WALL[WALL["N"] = 0] = "N";
+    WALL[WALL["E"] = 1] = "E";
+    WALL[WALL["S"] = 2] = "S";
+    WALL[WALL["W"] = 3] = "W";
+})(WALL || (WALL = {}));
+;
+var ROOMTYPE;
+(function (ROOMTYPE) {
+    ROOMTYPE[ROOMTYPE["CORRIDOR"] = 0] = "CORRIDOR";
+    ROOMTYPE[ROOMTYPE["ROOM"] = 1] = "ROOM";
+})(ROOMTYPE || (ROOMTYPE = {}));
+;
+var Room = (function () {
+    function Room(pos, size, roomType, walls) {
+        if (pos === void 0) { pos = new Pt(); }
+        if (size === void 0) { size = new Dm(); }
+        if (roomType === void 0) { roomType = ROOMTYPE.ROOM; }
+        if (walls === void 0) { walls = [WALL.N, WALL.E, WALL.S, WALL.W]; }
+        this.p = pos;
+        this.s = size;
+        this.w = walls;
+        this.t = roomType;
+        this.w = shuffle(this.w);
+    }
+    Room.prototype.getRandomWall = function () {
+        if (this.w.length === 0)
+            return null;
+        var randWall = this.w.pop();
+        var p = new Pt();
+        if (randWall === WALL.N) {
+            p.x = this.p.x + Math.floor(this.s.w / 2);
+            p.y = this.p.y - 1;
+        }
+        else if (randWall === WALL.S) {
+            p.x = this.p.x + Math.floor(this.s.w / 2);
+            p.y = this.p.y + this.s.h;
+        }
+        else if (randWall === WALL.W) {
+            p.x = this.p.x - 1;
+            p.y = this.p.y + Math.floor(this.s.h / 2);
+        }
+        else if (randWall === WALL.E) {
+            p.x = this.p.x + this.s.w;
+            p.y = this.p.y + Math.floor(this.s.h / 2);
+        }
+        return { p: p, w: randWall };
+    };
+    Room.makeRoom = function (mw, mh) {
+        return new Room(new Pt(), new Dm(randomInt(7, mw), randomInt(7, mh)), ROOMTYPE.ROOM);
+    };
+    Room.makeCorridor = function (vertical) {
+        return new Room(new Pt(), new Dm(vertical ? 5 : randomInt(9, 17), vertical ? randomInt(9, 17) : 5), ROOMTYPE.CORRIDOR);
+    };
+    return Room;
+}());
 var GameScreen = (function (_super) {
     __extends(GameScreen, _super);
     function GameScreen(game) {
-        return _super.call(this, game) || this;
+        var _this = _super.call(this, game) || this;
+        _this.camera = new Camera(new Pt(), new Dm(26, 16));
+        _this.level = new Level(new Dm(250, 250));
+        return _this;
     }
     GameScreen.prototype.transitionIn = function () {
         this.requestingClear = true;
@@ -498,32 +758,35 @@ var GameScreen = (function (_super) {
         _super.prototype.transitionOut.call(this);
     };
     GameScreen.prototype.update = function (delta) {
+        this.level.update(delta);
         if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
             this.game.engine.gsm.pop();
         }
-        if (Input.KB.wasBindDown(Input.KB.META_KEY.UP)) {
-            this.game.audioEngine.beep(new Beep(300, 2000, 'square', 1, 1));
+        if (Input.KB.isBindDown(Input.KB.META_KEY.UP)) {
+            this.camera.p.y--;
+            this.redraw = true;
         }
-        if (Input.KB.wasBindDown(Input.KB.META_KEY.DOWN)) {
-            this.game.audioEngine.beep(new Beep(150, 400, 'square', 1, 1));
+        if (Input.KB.isBindDown(Input.KB.META_KEY.DOWN)) {
+            this.camera.p.y++;
+            this.redraw = true;
         }
-        if (Input.KB.wasBindDown(Input.KB.META_KEY.LEFT)) {
-            this.game.audioEngine.beep(new Beep(1500, 7500, 'square', 1, 1));
+        if (Input.KB.isBindDown(Input.KB.META_KEY.LEFT)) {
+            this.camera.p.x--;
+            this.redraw = true;
         }
-        if (Input.KB.wasBindDown(Input.KB.META_KEY.RIGHT)) {
-            this.game.audioEngine.beep(new Beep(50, 3000, 'square', 1, 1));
+        if (Input.KB.isBindDown(Input.KB.META_KEY.RIGHT)) {
+            this.camera.p.x++;
+            this.redraw = true;
         }
+        if (Input.KB.wasDown(Input.KB.KEY.C)) {
+            this.camera.z = !this.camera.z;
+            this.redraw = true;
+        }
+        this.requestingClear = this.redraw;
     };
     GameScreen.prototype.draw = function (ctx) {
         if (this.redraw) {
-            ctx.globalAlpha = 1.0;
-            ctx.fillStyle = "blue";
-            ctx.fillRect(0, 0, ~~(Game.GAME_PIXEL_WIDTH), ~~(Game.GAME_PIXEL_HEIGHT));
-            ctx.globalAlpha = 0.75;
-            ctx.textAlign = "center";
-            ctx.fillStyle = ctx.strokeStyle = "yellow";
-            ctx.lineWidth = 2;
-            ctx.fillText("This is the game screen, baby.", ~~((Game.GAME_PIXEL_WIDTH / 2) | 0), ~~(64));
+            this.level.draw(ctx, this.camera);
         }
     };
     return GameScreen;
@@ -576,13 +839,13 @@ var MainMenu = (function (_super) {
             ctx.globalAlpha = 1.0;
             ctx.font = "18px Verdana";
             ctx.textAlign = "center";
-            ctx.fillStyle = ctx.strokeStyle = "black";
+            ctx.fillStyle = ctx.strokeStyle = "#DDDDDD";
             ctx.lineWidth = 2;
-            ctx.fillText("js13k 2017", ~~((Game.GAME_PIXEL_WIDTH / 2) | 0), ~~(64));
+            ctx.fillText("js13k 2017", ~~((Game.P_W / 2) | 0), ~~(64));
             for (var i = 0; i < this.menuOptions.length; i++) {
-                ctx.fillText(this.menuOptions[i], ~~((Game.GAME_PIXEL_WIDTH / 2) | 0), ~~(((Game.GAME_PIXEL_HEIGHT) | 0) - (this.menuOptions.length * 36) + (i * 36)));
+                ctx.fillText(this.menuOptions[i], ~~((Game.P_W / 2) | 0), ~~(((Game.P_H) | 0) - (this.menuOptions.length * 36) + (i * 36)));
             }
-            ctx.strokeRect(~~(Game.GAME_PIXEL_WIDTH / 2 - 75), ~~((Game.GAME_PIXEL_HEIGHT) - ((this.menuOptions.length) * 36) + (this.selectedIndex * 36) - 18), 150, 24);
+            ctx.strokeRect(~~(Game.P_W / 2 - 75), ~~((Game.P_H) - ((this.menuOptions.length) * 36) + (this.selectedIndex * 36) - 18), 150, 24);
         }
     };
     return MainMenu;

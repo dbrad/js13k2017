@@ -1,9 +1,11 @@
 /// <reference path="../game.ts" />
 
 class GameScreen extends GameState {
-
+    private level: Level;
     constructor(game: Game) {
         super(game);
+        this.camera = new Camera(new Pt(), new Dm(26, 16));
+        this.level = new Level(new Dm(250, 250));
     }
 
     transitionIn(): void {
@@ -16,38 +18,37 @@ class GameScreen extends GameState {
     }
 
     update(delta: number): void {
+        this.level.update(delta);
         if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
             this.game.engine.gsm.pop();
         }
-        if (Input.KB.wasBindDown(Input.KB.META_KEY.UP)) {
-            this.game.audioEngine.beep(new Beep(300, 2000, 'square', 1, 1));
+        if (Input.KB.isBindDown(Input.KB.META_KEY.UP)) {
+            this.camera.p.y--;
+            this.redraw = true;
         }
-        if (Input.KB.wasBindDown(Input.KB.META_KEY.DOWN)) {
-            this.game.audioEngine.beep(new Beep(150, 400, 'square', 1, 1));
+        if (Input.KB.isBindDown(Input.KB.META_KEY.DOWN)) {
+            this.camera.p.y++;
+            this.redraw = true;
         }
-        if (Input.KB.wasBindDown(Input.KB.META_KEY.LEFT)) {
-            this.game.audioEngine.beep(new Beep(1500, 7500, 'square', 1, 1));
+        if (Input.KB.isBindDown(Input.KB.META_KEY.LEFT)) {
+            this.camera.p.x--;
+            this.redraw = true;
         }
-        if (Input.KB.wasBindDown(Input.KB.META_KEY.RIGHT)) {
-            this.game.audioEngine.beep(new Beep(50, 3000, 'square', 1, 1));
+        if (Input.KB.isBindDown(Input.KB.META_KEY.RIGHT)) {
+            this.camera.p.x++;    
+            this.redraw = true;            
         }
+        if(Input.KB.wasDown(Input.KB.KEY.C)) {
+            this.camera.z = !this.camera.z;
+            this.redraw = true;
+        }
+        this.requestingClear = this.redraw;        
     }
 
+    private camera: Camera;
     draw(ctx: Context2D): void {
         if (this.redraw) {
-            ctx.globalAlpha = 1.0;                
-            ctx.fillStyle = "blue";
-            ctx.fillRect(
-                0, 0,
-                ~~(Game.GAME_PIXEL_WIDTH), ~~(Game.GAME_PIXEL_HEIGHT));
-            ctx.globalAlpha = 0.75;
-            ctx.textAlign = "center";
-            ctx.fillStyle = ctx.strokeStyle = "yellow";
-            ctx.lineWidth = 2;
-            ctx.fillText(
-                `This is the game screen, baby.`,
-                ~~((Game.GAME_PIXEL_WIDTH / 2) | 0),
-                ~~(64));
+            this.level.draw(ctx, this.camera);
         }
     }
 }

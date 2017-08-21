@@ -51,21 +51,21 @@ class MainMenu extends GameState {
             ctx.globalAlpha = 1.0;
             ctx.font = "18px Verdana";
             ctx.textAlign = "center";
-            ctx.fillStyle = ctx.strokeStyle = "black";
+            ctx.fillStyle = ctx.strokeStyle = "#DDDDDD";
             ctx.lineWidth = 2;
             ctx.fillText(
                 `js13k 2017`,
-                ~~((Game.GAME_PIXEL_WIDTH / 2) | 0),
+                ~~((Game.P_W / 2) | 0),
                 ~~(64));
             for (let i = 0; i < this.menuOptions.length; i++) {
                 ctx.fillText(
                     this.menuOptions[i],
-                    ~~((Game.GAME_PIXEL_WIDTH / 2) | 0),
-                    ~~(((Game.GAME_PIXEL_HEIGHT) | 0) - (this.menuOptions.length * 36) + (i * 36)));
+                    ~~((Game.P_W / 2) | 0),
+                    ~~(((Game.P_H) | 0) - (this.menuOptions.length * 36) + (i * 36)));
             }
             ctx.strokeRect(
-                ~~(Game.GAME_PIXEL_WIDTH / 2 - 75),
-                ~~((Game.GAME_PIXEL_HEIGHT) - ((this.menuOptions.length) * 36) + (this.selectedIndex * 36) - 18),
+                ~~(Game.P_W / 2 - 75),
+                ~~((Game.P_H) - ((this.menuOptions.length) * 36) + (this.selectedIndex * 36) - 18),
                 150,
                 24);
         }

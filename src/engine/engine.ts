@@ -14,6 +14,7 @@ class Engine {
         this.ctx = <Context2D>this.screen.getContext("2d");
         this.ctx.mozImageSmoothingEnabled = false;
         this.ctx.imageSmoothingEnabled = false;
+        this.ctx.webkitImageSmoothingEnabled = false;
 
         this.buffer = document.createElement("canvas");
         this.buffer.width = this.screen.width;
@@ -22,6 +23,7 @@ class Engine {
         this.bufferCtx = <Context2D>this.buffer.getContext("2d");
         this.bufferCtx.mozImageSmoothingEnabled = false;
         this.bufferCtx.imageSmoothingEnabled = false;
+        this.bufferCtx.webkitImageSmoothingEnabled = false;
 
         this.gsm = new GameStateManager();
     }
@@ -44,13 +46,13 @@ class Engine {
             this.gsm.current.draw(this.bufferCtx);
             this.ctx.drawImage(
                 this.buffer,
-                0, 0, Game.GAME_PIXEL_WIDTH, Game.GAME_PIXEL_HEIGHT,
-                0, 0, Game.GAME_PIXEL_WIDTH, Game.GAME_PIXEL_HEIGHT);
+                0, 0, Game.P_W, Game.P_H,
+                0, 0, Game.P_W, Game.P_H);
             this.redraw = this.gsm.current.redraw = false;
         } else if (this.systemPause && this.redraw) {
             this.ctx.globalAlpha = 0.7;
             this.ctx.fillStyle = "black";
-            this.ctx.fillRect(0, 0, Game.GAME_PIXEL_WIDTH, Game.GAME_PIXEL_HEIGHT);
+            this.ctx.fillRect(0, 0, Game.P_W, Game.P_H);
             this.ctx.globalAlpha = 1.0;
             this.redraw = this.gsm.current.redraw = false;
         }

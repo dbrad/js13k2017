@@ -32,6 +32,7 @@ class Game {
         this._window.onblur = this.engine.pause.bind(this.engine);
         this._window.onfocus = this.engine.unpause.bind(this.engine);
         this.audioEngine = new AudioEngine(this._audioContext);
+        SpriteSheetManager.storeSheet(new SpriteSheet('sheet', 'tiles', 8, 0, new Dm(5, 1), new Pt(40, 0)));
     }
 
     private onResize(): void {
@@ -41,7 +42,7 @@ class Game {
         scaleToFit = (scaleToFit <= 0) ? 1 : scaleToFit;
         let size: number[] = [this._canvas.width * scaleToFit, this._canvas.height * scaleToFit];
         let offset: number[] = [(window.innerWidth - size[0]) / 2, (window.innerHeight - size[1]) / 2];
-        let stage: HTMLCanvasElement = <HTMLCanvasElement>document.getElementById("stage");
+        let stage: HTMLDivElement = <HTMLDivElement>document.getElementById("stage");
         let rule: string = "translate(" + (~~offset[0]) + "px, " + (~~offset[1]) + "px) scale(" + (~~scaleToFit) + ")";
         stage.style.transform = rule;
         stage.style.webkitTransform = rule;
@@ -49,7 +50,9 @@ class Game {
 }
 
 namespace Game {
-    export const GAME_PIXEL_WIDTH: number = 512;
-    export const GAME_PIXEL_HEIGHT: number = 288;
-    export const TILE_SIZE: number = 8;
+    export const P_W: number = 512;
+    export const P_H: number = 288;
+    export const T_W: number = 64;
+    export const T_H: number = 36;
+    export const T_S: number = 8;
 }
