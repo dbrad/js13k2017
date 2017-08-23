@@ -499,11 +499,6 @@ var Camera = (function () {
     }
     return Camera;
 }());
-var Tile = (function () {
-    function Tile() {
-    }
-    return Tile;
-}());
 var TMASK;
 (function (TMASK) {
     TMASK.D = 1;
@@ -671,6 +666,98 @@ var Level = (function () {
     };
     return Level;
 }());
+var Light = (function () {
+    function Light(p, i) {
+        this.p = p;
+        this.i = .80;
+        this.r = 6;
+    }
+    Light.prototype.calc = function (m, s) {
+        this.a = [];
+        var es = Light.poc(this.p.x, this.p.y, this.r);
+        for (var e in es) {
+            var l = Light.pol(this.p.x, this.p.y, es[e].x, es[e].y);
+            var mx = this.i / l.length;
+            for (var tl in l) {
+                if (l[tl].x < 0 || l[tl].x >= s.w ||
+                    l[tl].y < 0 || l[tl].y >= s.h) {
+                    break;
+                }
+                var idx = ((l[tl].y * s.w) + l[tl].x);
+                var st = mx * (l.length - parseInt(tl));
+                if (!(idx in this.a) || this.a[idx] < st) {
+                    this.a[idx] = (st > 1 ? 1 : st);
+                }
+                if (m[idx] & TMASK.WALL) {
+                    break;
+                }
+            }
+        }
+    };
+    Light.reLM = function (al, s) {
+        var lm = [];
+        for (var l in al) {
+            for (var idx in al[l].a) {
+                if (!lm[idx] || lm[idx] < al[l].a[idx]) {
+                    lm[idx] = al[l].a[idx];
+                }
+            }
+        }
+        return lm;
+    };
+    Light.pol = function (x1, y1, x2, y2) {
+        var l = [];
+        var dx = Math.abs(x2 - x1);
+        var dy = Math.abs(y2 - y1);
+        var x = x1;
+        var y = y1;
+        var n = 1 + dx + dy;
+        var xInc = (x1 < x2 ? 1 : -1);
+        var yInc = (y1 < y2 ? 1 : -1);
+        var e = dx - dy;
+        dx *= 2;
+        dy *= 2;
+        while (n > 0) {
+            l.push(new Pt(x, y));
+            if (e > 0) {
+                x += xInc;
+                e -= dy;
+            }
+            else {
+                y += yInc;
+                e += dx;
+            }
+            n -= 1;
+        }
+        return l;
+    };
+    Light.poc = function (cx, cy, cr) {
+        var l = [];
+        var x = cr;
+        var y = 0;
+        var o2 = Math.floor(1 - x);
+        while (y <= x) {
+            l.push(new Pt(x + cx, y + cy));
+            l.push(new Pt(y + cx, x + cy));
+            l.push(new Pt(-x + cx, y + cy));
+            l.push(new Pt(-y + cx, x + cy));
+            l.push(new Pt(-x + cx, -y + cy));
+            l.push(new Pt(-y + cx, -x + cy));
+            l.push(new Pt(x + cx, -y + cy));
+            l.push(new Pt(y + cx, -x + cy));
+            y += 1;
+            if (o2 <= 0) {
+                o2 += (2 * y) + 1;
+            }
+            else {
+                x -= 1;
+                o2 += (2 * (y - x)) + 1;
+            }
+        }
+        return l;
+    };
+    return Light;
+}());
 function randomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -747,6 +834,7 @@ var GameScreen = (function (_super) {
     function GameScreen(game) {
         var _this = _super.call(this, game) || this;
         _this.camera = new Camera(new Pt(), new Dm(26, 14));
+        _this.light = new Light(new Pt(13, 7), 0.45);
         _this.level = new Level(new Dm(250, 250));
         return _this;
     }
@@ -764,29 +852,51 @@ var GameScreen = (function (_super) {
         }
         if (Input.KB.isBindDown(Input.KB.META_KEY.UP)) {
             this.camera.p.y--;
+            this.light.p.y--;
             this.redraw = true;
         }
         if (Input.KB.isBindDown(Input.KB.META_KEY.DOWN)) {
             this.camera.p.y++;
+            this.light.p.y++;
             this.redraw = true;
         }
         if (Input.KB.isBindDown(Input.KB.META_KEY.LEFT)) {
             this.camera.p.x--;
+            this.light.p.x--;
             this.redraw = true;
         }
         if (Input.KB.isBindDown(Input.KB.META_KEY.RIGHT)) {
             this.camera.p.x++;
+            this.light.p.x++;
             this.redraw = true;
         }
         if (Input.KB.wasDown(Input.KB.KEY.C)) {
             this.camera.z = !this.camera.z;
             this.redraw = true;
         }
+        if (this.redraw) {
+            var c = this.camera;
+            this.light.calc(this.level.map, this.level.s);
+            this.lightMap = Light.reLM([this.light], this.level.s);
+        }
         this.requestingClear = this.redraw;
     };
     GameScreen.prototype.draw = function (ctx) {
         if (this.redraw) {
             this.level.draw(ctx, this.camera);
+            ctx.fillStyle = "black";
+            for (var x = this.camera.p.x, rx = 0; x < this.camera.p.x + this.camera.s.w; x++) {
+                for (var y = this.camera.p.y, ry = 0; y < this.camera.p.y + this.camera.s.h; y++) {
+                    var val = this.lightMap[x + (y * this.level.s.h)];
+                    ctx.globalAlpha = 1 - (val ? val : 0);
+                    ctx.fillRect(rx * Game.T_S * 2, ry * Game.T_S * 2, Game.T_S * 2, Game.T_S * 2);
+                    ry++;
+                }
+                rx++;
+            }
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = "red";
+            ctx.strokeRect(13 * Game.T_S * 2, 7 * Game.T_S * 2, Game.T_S * 2, Game.T_S * 2);
         }
     };
     return GameScreen;

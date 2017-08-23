@@ -1,8 +1,3 @@
-class Tile {
-    value: number;
-    visable: boolean;
-    discovered: boolean;
-}
 /*
     0000 0001 = 1 = discovered
     0000 0010 = 2 = visable
@@ -24,7 +19,7 @@ namespace TMASK {
 class Level {
     private entities: GameEntity[];
     private objects: GameEntity[];
-    private map: Array<number> = []; // x + (y * w)
+    public map: Array<number> = []; // x + (y * w)
     private entrance: Pt;
     private exit: Pt;
     private renderCache: HTMLCanvasElement;
