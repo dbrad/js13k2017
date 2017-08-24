@@ -3,6 +3,11 @@
 
 namespace ImageCache {
     let cache: ImageArray = {};
+    /**
+     * @export
+     * @param {string} name 
+     * @returns {HTMLImageElement} 
+     */
     export function getTexture(name: string): HTMLImageElement {
         return cache[name];
     }
@@ -10,11 +15,20 @@ namespace ImageCache {
     let toLoad: StringArray = {};
     let loadCount = 0;
     export namespace Loader {
+        /**
+         * @export
+         * @param {string} name 
+         * @param {string} url 
+         */
         export function add(name: string, url: string): void {
             toLoad[name] = url;
             loadCount++;
         }
 
+        /**
+         * @export
+         * @param {*} callback 
+         */
         export function load(callback: any): void {
             let async = { counter: 0, loadCount: 0, callback: callback };
             let done = function (async: any) { if ((async.counter++) === async.loadCount) { async.callback(); } };

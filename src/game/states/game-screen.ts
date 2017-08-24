@@ -5,9 +5,27 @@ class GameScreen extends GameState {
     private lightMap: number[];
     constructor(game: Game) {
         super(game);
-        this.camera = new Camera(new Pt(), new Dm(26, 14));
-        this.light = new Light(new Pt(13, 7), 0.45);
+        this.c = new Camera(new Pt(), new Dm(26, 14));
         this.level = new Level(new Dm(250, 250));
+        {
+            let p = new GameEntity();
+            p.addComponent(new cPos());
+            p.addComponent(new cLight(new Light(new Pt(), 0.45)));
+            p.addComponent(new cAABB(new Dm(1,1)));
+            p.addComponent(new cFlag('player', true));
+            p.addComponent(new cSprite(SSM.spriteSheet("sprites").sprites[2]));
+            this.level.addEntity(p, new Pt(10,10));
+        }
+
+        {
+            let p = new GameEntity();
+            p.addComponent(new cPos());
+            p.addComponent(new cLight(new Light(new Pt(), 0.45)));
+            p.addComponent(new cAABB(new Dm(1,1)));
+            p.addComponent(new cFlag('player', true));
+            p.addComponent(new cSprite(SSM.spriteSheet("sprites").sprites[2]));
+            this.level.addEntity(p, new Pt(20,20));
+        }
     }
 
     transitionIn(): void {
@@ -22,62 +40,38 @@ class GameScreen extends GameState {
     update(delta: number): void {
         this.level.update(delta);
         if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
-            this.game.engine.gsm.pop();
+            this.g.e.gsm.pop();
         }
         if (Input.KB.isBindDown(Input.KB.META_KEY.UP)) {
-            this.camera.p.y--;
-            this.light.p.y--;
+            this.c.p.y--;
             this.redraw = true;
         }
         if (Input.KB.isBindDown(Input.KB.META_KEY.DOWN)) {
-            this.camera.p.y++;
-            this.light.p.y++;
+            this.c.p.y++;
             
             this.redraw = true;
         }
         if (Input.KB.isBindDown(Input.KB.META_KEY.LEFT)) {
-            this.camera.p.x--;
-            this.light.p.x--;
+            this.c.p.x--;
             
             this.redraw = true;
         }
         if (Input.KB.isBindDown(Input.KB.META_KEY.RIGHT)) {
-            this.camera.p.x++;
-            this.light.p.x++;
+            this.c.p.x++;
             
             this.redraw = true;
         }
         if (Input.KB.wasDown(Input.KB.KEY.C)) {
-            this.camera.z = !this.camera.z;
+            this.c.z = !this.c.z;
             this.redraw = true;
-        }
-        if (this.redraw) {
-            let c = this.camera;
-            this.light.calc(this.level.map, this.level.s);
-            this.lightMap = Light.reLM([this.light], this.level.s);
         }
         this.requestingClear = this.redraw;
     }
 
-    private camera: Camera;
-    private light: Light;
+    private c: Camera;
     draw(ctx: Context2D): void {
         if (this.redraw) {
-            this.level.draw(ctx, this.camera);
-            ctx.fillStyle = "black";
-            for (let x = this.camera.p.x, rx = 0; x < this.camera.p.x + this.camera.s.w; x++) {
-                for (let y = this.camera.p.y, ry = 0; y < this.camera.p.y + this.camera.s.h; y++) {
-                    let val = this.lightMap[x + (y * this.level.s.h)];
-                    ctx.globalAlpha = 1 - (val ? val : 0);
-                    ctx.fillRect(rx * Game.T_S * 2, ry * Game.T_S * 2, Game.T_S * 2, Game.T_S * 2);
-                    ry++;
-                }
-                rx++;
-            }
-            ctx.globalAlpha = 1;
-            ctx.strokeStyle = "red";
-            ctx.strokeRect(13 * Game.T_S * 2, 7 * Game.T_S * 2, Game.T_S * 2, Game.T_S * 2);
-            
+            this.level.draw(ctx, this.c);          
         }
     }
 }

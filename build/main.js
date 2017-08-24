@@ -105,36 +105,37 @@ var Input;
 })(Input || (Input = {}));
 var Game = (function () {
     function Game(window, canvas, audioContext) {
-        this._canvas = canvas;
-        this._window = window;
-        this._audioContext = audioContext;
+        this._c = canvas;
+        this._w = window;
+        this._ac = audioContext;
         ImageCache.Loader.add("sheet", "./sheet.png");
         ImageCache.Loader.load(this.init.bind(this));
     }
     Game.prototype.init = function () {
-        this.engine = new Engine(this._canvas);
+        this.e = new Engine(this._c);
         this.bindings();
-        this.engine.gsm.register('main-menu', new MainMenu(this));
-        this.engine.gsm.register('game-screen', new GameScreen(this));
-        this.engine.gsm.push('main-menu');
-        this.engine.run();
+        this.e.gsm.reg('main-menu', new MainMenu(this));
+        this.e.gsm.reg('game-screen', new GameScreen(this));
+        this.e.gsm.push('main-menu');
+        this.e.run();
     };
     Game.prototype.bindings = function () {
-        this._window.addEventListener("resize", this.onResize.bind(this), false);
+        this._w.addEventListener("resize", this.onResize.bind(this), false);
         this.onResize();
-        this._window.onkeydown = Input.KB.keyDown;
-        this._window.onkeyup = Input.KB.keyUp;
-        this._window.onblur = this.engine.pause.bind(this.engine);
-        this._window.onfocus = this.engine.unpause.bind(this.engine);
-        this.audioEngine = new AudioEngine(this._audioContext);
-        SpriteSheetManager.storeSheet(new SpriteSheet('sheet', 'tiles', 8, 0, new Dm(5, 1), new Pt(40, 0)));
+        this._w.onkeydown = Input.KB.keyDown;
+        this._w.onkeyup = Input.KB.keyUp;
+        this._w.onblur = this.e.pause.bind(this.e);
+        this._w.onfocus = this.e.unpause.bind(this.e);
+        this.ae = new AudioEngine(this._ac);
+        SSM.storeSheet(new SpriteSheet('sheet', 'tiles', 8, 0, new Dm(5, 1), new Pt(40, 0)));
+        SSM.storeSheet(new SpriteSheet('sheet', 'sprites', 8, 0, new Dm(5, 1)));
     };
     Game.prototype.onResize = function () {
-        var scaleX = window.innerWidth / this._canvas.width;
-        var scaleY = window.innerHeight / this._canvas.height;
+        var scaleX = window.innerWidth / this._c.width;
+        var scaleY = window.innerHeight / this._c.height;
         var scaleToFit = Math.min(scaleX, scaleY) | 0;
         scaleToFit = (scaleToFit <= 0) ? 1 : scaleToFit;
-        var size = [this._canvas.width * scaleToFit, this._canvas.height * scaleToFit];
+        var size = [this._c.width * scaleToFit, this._c.height * scaleToFit];
         var offset = [(window.innerWidth - size[0]) / 2, (window.innerHeight - size[1]) / 2];
         var stage = document.getElementById("stage");
         var rule = "translate(" + (~~offset[0]) + "px, " + (~~offset[1]) + "px) scale(" + (~~scaleToFit) + ")";
@@ -151,8 +152,8 @@ var Game = (function () {
     Game.T_S = 8;
 })(Game || (Game = {}));
 var GameState = (function () {
-    function GameState(game) {
-        this.game = game;
+    function GameState(g) {
+        this.g = g;
         this.redraw = true;
         this.requestingClear = false;
     }
@@ -171,10 +172,10 @@ var GameStateManager = (function () {
         this.stateCollection = {};
         this.stateStack = [];
     }
-    GameStateManager.prototype.register = function (stateName, gameState) {
+    GameStateManager.prototype.reg = function (stateName, gameState) {
         this.stateCollection[stateName] = gameState;
     };
-    Object.defineProperty(GameStateManager.prototype, "current", {
+    Object.defineProperty(GameStateManager.prototype, "cur", {
         get: function () {
             return this.stateStack[this.stateStack.length - 1];
         },
@@ -182,14 +183,14 @@ var GameStateManager = (function () {
         configurable: true
     });
     GameStateManager.prototype.push = function (stateName) {
-        this.current && this.current.transitionOut();
+        this.cur && this.cur.transitionOut();
         this.stateStack.push(this.stateCollection[stateName]);
-        this.current && this.current.transitionIn();
+        this.cur && this.cur.transitionIn();
     };
     GameStateManager.prototype.pop = function () {
-        this.current && this.current.transitionOut();
+        this.cur && this.cur.transitionOut();
         this.stateStack.pop();
-        this.current && this.current.transitionIn();
+        this.cur && this.cur.transitionIn();
     };
     return GameStateManager;
 }());
@@ -214,26 +215,26 @@ var Engine = (function () {
     }
     Engine.prototype.update = function (delta) {
         if (!this.systemPause) {
-            this.gsm.current.update(delta);
+            this.gsm.cur.update(delta);
         }
     };
     Engine.prototype.draw = function () {
-        if (this.clearScreen || this.gsm.current.requestingClear) {
+        if (this.clearScreen || this.gsm.cur.requestingClear) {
             this.ctx.clearRect(0, 0, this.screen.width, this.screen.height);
             this.bufferCtx.clearRect(0, 0, this.screen.width, this.screen.height);
-            this.clearScreen = this.gsm.current.requestingClear = false;
+            this.clearScreen = this.gsm.cur.requestingClear = false;
         }
-        if (!this.systemPause && (this.redraw || this.gsm.current.redraw)) {
-            this.gsm.current.draw(this.bufferCtx);
+        if (!this.systemPause && (this.redraw || this.gsm.cur.redraw)) {
+            this.gsm.cur.draw(this.bufferCtx);
             this.ctx.drawImage(this.buffer, 0, 0, Game.P_W, Game.P_H, 0, 0, Game.P_W, Game.P_H);
-            this.redraw = this.gsm.current.redraw = false;
+            this.redraw = this.gsm.cur.redraw = false;
         }
         else if (this.systemPause && this.redraw) {
             this.ctx.globalAlpha = 0.7;
             this.ctx.fillStyle = "black";
             this.ctx.fillRect(0, 0, Game.P_W, Game.P_H);
             this.ctx.globalAlpha = 1.0;
-            this.redraw = this.gsm.current.redraw = false;
+            this.redraw = this.gsm.cur.redraw = false;
         }
     };
     Engine.prototype.loop = function () {
@@ -256,7 +257,7 @@ var Engine = (function () {
     };
     Engine.prototype.unpause = function () {
         this.systemPause = false;
-        this.gsm.current.redraw = this.clearScreen = true;
+        this.gsm.cur.redraw = this.clearScreen = true;
     };
     return Engine;
 }());
@@ -298,95 +299,6 @@ var Component = (function () {
     }
     return Component;
 }());
-var Dm = (function () {
-    function Dm(w, h) {
-        if (w === void 0) { w = 0; }
-        if (h === void 0) { h = 0; }
-        this.w = w;
-        this.h = h;
-    }
-    Dm.from = function (w, h) {
-        return new Dm(w, h);
-    };
-    return Dm;
-}());
-var Pt = (function () {
-    function Pt(x, y) {
-        if (x === void 0) { x = 0; }
-        if (y === void 0) { y = 0; }
-        this.x = x;
-        this.y = y;
-    }
-    Pt.from = function (x, y) {
-        return new Pt(x, y);
-    };
-    return Pt;
-}());
-var ECS;
-(function (ECS) {
-    var AABB = (function (_super) {
-        __extends(AABB, _super);
-        function AABB(_a) {
-            var _b = _a.w, w = _b === void 0 ? 0 : _b, _c = _a.h, h = _c === void 0 ? 0 : _c;
-            var _this = _super.call(this, 'aabb') || this;
-            _this.value = new Dm(w, h);
-            return _this;
-        }
-        return AABB;
-    }(Component));
-    ECS.AABB = AABB;
-    var Pos = (function (_super) {
-        __extends(Pos, _super);
-        function Pos(_a) {
-            var _b = _a.x, x = _b === void 0 ? 0 : _b, _c = _a.y, y = _c === void 0 ? 0 : _c;
-            var _this = _super.call(this, 'position') || this;
-            _this.value = new Pt(x, y);
-            return _this;
-        }
-        return Pos;
-    }(Component));
-    ECS.Pos = Pos;
-    var Style = (function (_super) {
-        __extends(Style, _super);
-        function Style(colour) {
-            var _this = _super.call(this, 'style') || this;
-            _this.value = colour;
-            return _this;
-        }
-        return Style;
-    }(Component));
-    ECS.Style = Style;
-    var Sprite = (function (_super) {
-        __extends(Sprite, _super);
-        function Sprite(sprite) {
-            var _this = _super.call(this, 'sprite') || this;
-            _this.value = sprite;
-            return _this;
-        }
-        return Sprite;
-    }(Component));
-    ECS.Sprite = Sprite;
-    var Tag = (function (_super) {
-        __extends(Tag, _super);
-        function Tag(tag, value) {
-            var _this = _super.call(this, tag) || this;
-            _this.value = value;
-            return _this;
-        }
-        return Tag;
-    }(Component));
-    ECS.Tag = Tag;
-    var Flag = (function (_super) {
-        __extends(Flag, _super);
-        function Flag(name, value) {
-            var _this = _super.call(this, name) || this;
-            _this.value = value;
-            return _this;
-        }
-        return Flag;
-    }(Component));
-    ECS.Flag = Flag;
-})(ECS || (ECS = {}));
 var GameEntity = (function () {
     function GameEntity() {
         this.components = {};
@@ -434,6 +346,30 @@ var ImageCache;
         Loader.load = load;
     })(Loader = ImageCache.Loader || (ImageCache.Loader = {}));
 })(ImageCache || (ImageCache = {}));
+var Pt = (function () {
+    function Pt(x, y) {
+        if (x === void 0) { x = 0; }
+        if (y === void 0) { y = 0; }
+        this.x = x;
+        this.y = y;
+    }
+    Pt.from = function (x, y) {
+        return new Pt(x, y);
+    };
+    return Pt;
+}());
+var Dm = (function () {
+    function Dm(w, h) {
+        if (w === void 0) { w = 0; }
+        if (h === void 0) { h = 0; }
+        this.w = w;
+        this.h = h;
+    }
+    Dm.from = function (w, h) {
+        return new Dm(w, h);
+    };
+    return Dm;
+}());
 var SpriteSheet = (function () {
     function SpriteSheet(imageName, sheetName, tileSize, gutter, subsheet, offset) {
         if (gutter === void 0) { gutter = 0; }
@@ -480,18 +416,18 @@ var SpriteSheet = (function () {
     };
     return SpriteSheet;
 }());
-var SpriteSheetManager;
-(function (SpriteSheetManager) {
+var SSM;
+(function (SSM) {
     var sheets = {};
     function storeSheet(sheet) {
         sheets[sheet.name] = sheet;
     }
-    SpriteSheetManager.storeSheet = storeSheet;
+    SSM.storeSheet = storeSheet;
     function spriteSheet(name) {
         return sheets[name];
     }
-    SpriteSheetManager.spriteSheet = spriteSheet;
-})(SpriteSheetManager || (SpriteSheetManager = {}));
+    SSM.spriteSheet = spriteSheet;
+})(SSM || (SSM = {}));
 var Camera = (function () {
     function Camera(p, s) {
         this.p = p;
@@ -499,6 +435,81 @@ var Camera = (function () {
     }
     return Camera;
 }());
+var cAABB = (function (_super) {
+    __extends(cAABB, _super);
+    function cAABB(_a) {
+        var _b = _a.w, w = _b === void 0 ? 0 : _b, _c = _a.h, h = _c === void 0 ? 0 : _c;
+        var _this = _super.call(this, 'aabb') || this;
+        _this.value = new Dm(w, h);
+        return _this;
+    }
+    return cAABB;
+}(Component));
+var cPos = (function (_super) {
+    __extends(cPos, _super);
+    function cPos(p) {
+        if (p === void 0) { p = new Pt(); }
+        var _this = _super.call(this, 'pos') || this;
+        _this.value = p;
+        return _this;
+    }
+    return cPos;
+}(Component));
+var cMove = (function (_super) {
+    __extends(cMove, _super);
+    function cMove(p) {
+        if (p === void 0) { p = new Pt(); }
+        var _this = _super.call(this, 'move') || this;
+        _this.value = p;
+        return _this;
+    }
+    return cMove;
+}(Component));
+var cStyle = (function (_super) {
+    __extends(cStyle, _super);
+    function cStyle(colour) {
+        var _this = _super.call(this, 'style') || this;
+        _this.value = colour;
+        return _this;
+    }
+    return cStyle;
+}(Component));
+var cSprite = (function (_super) {
+    __extends(cSprite, _super);
+    function cSprite(sprite) {
+        var _this = _super.call(this, 'sprite') || this;
+        _this.value = sprite;
+        return _this;
+    }
+    return cSprite;
+}(Component));
+var cTag = (function (_super) {
+    __extends(cTag, _super);
+    function cTag(tag, value) {
+        var _this = _super.call(this, tag) || this;
+        _this.value = value;
+        return _this;
+    }
+    return cTag;
+}(Component));
+var cFlag = (function (_super) {
+    __extends(cFlag, _super);
+    function cFlag(name, value) {
+        var _this = _super.call(this, name) || this;
+        _this.value = value;
+        return _this;
+    }
+    return cFlag;
+}(Component));
+var cLight = (function (_super) {
+    __extends(cLight, _super);
+    function cLight(light) {
+        var _this = _super.call(this, 'light') || this;
+        _this.value = light;
+        return _this;
+    }
+    return cLight;
+}(Component));
 var TMASK;
 (function (TMASK) {
     TMASK.D = 1;
@@ -511,19 +522,22 @@ var TMASK;
 var Level = (function () {
     function Level(s) {
         if (s === void 0) { s = new Dm(50, 50); }
-        this.map = [];
+        this.e = [];
+        this.o = [];
+        this.m = [];
+        this.lm = [];
         this.rerender = true;
         this.s = s;
-        this.renderCache = document.createElement("canvas");
-        this.renderCache.width = (s.w * Game.T_S);
-        this.renderCache.height = (s.h * Game.T_S);
-        this.renderCache.getContext("2d").mozImageSmoothingEnabled = false;
-        this.renderCache.getContext("2d").imageSmoothingEnabled = false;
+        this.rc = document.createElement("canvas");
+        this.rc.width = (s.w * Game.T_S);
+        this.rc.height = (s.h * Game.T_S);
+        this.rc.getContext("2d").mozImageSmoothingEnabled = false;
+        this.rc.getContext("2d").imageSmoothingEnabled = false;
         this.generate();
     }
     Level.prototype.addEntity = function (entity, pos) {
-        entity.components["position"].value = pos;
-        this.entities.push(entity);
+        entity.components["pos"].value = pos;
+        this.e.push(entity);
     };
     Level.prototype.calcOrigin = function (r, d) {
         var N = d.w === WALL.N, S = d.w === WALL.S, E = d.w === WALL.E, W = d.w === WALL.W;
@@ -538,18 +552,18 @@ var Level = (function () {
         return new Pt(x, y);
     };
     Level.prototype.addDoor = function (r, d) {
-        this.map[d.p.x + (d.p.y * this.s.h)] = TMASK.FLOOR | TMASK.W;
+        this.m[d.p.x + (d.p.y * this.s.h)] = TMASK.FLOOR | TMASK.W;
         if (d.w === WALL.N || d.w === WALL.S) {
-            this.map[(d.p.x - 1) + (d.p.y * this.s.h)] = TMASK.WALL;
-            this.map[(d.p.x + 1) + (d.p.y * this.s.h)] = TMASK.WALL;
-            this.map[d.p.x + ((d.p.y - 1) * this.s.h)] = TMASK.FLOOR | TMASK.W;
-            this.map[d.p.x + ((d.p.y + 1) * this.s.h)] = TMASK.FLOOR | TMASK.W;
+            this.m[(d.p.x - 1) + (d.p.y * this.s.h)] = TMASK.WALL;
+            this.m[(d.p.x + 1) + (d.p.y * this.s.h)] = TMASK.WALL;
+            this.m[d.p.x + ((d.p.y - 1) * this.s.h)] = TMASK.FLOOR | TMASK.W;
+            this.m[d.p.x + ((d.p.y + 1) * this.s.h)] = TMASK.FLOOR | TMASK.W;
         }
         else {
-            this.map[(d.p.x - 1) + (d.p.y * this.s.h)] = TMASK.FLOOR | TMASK.W;
-            this.map[(d.p.x + 1) + (d.p.y * this.s.h)] = TMASK.FLOOR | TMASK.W;
-            this.map[d.p.x + ((d.p.y - 1) * this.s.h)] = TMASK.WALL;
-            this.map[d.p.x + ((d.p.y + 1) * this.s.h)] = TMASK.WALL;
+            this.m[(d.p.x - 1) + (d.p.y * this.s.h)] = TMASK.FLOOR | TMASK.W;
+            this.m[(d.p.x + 1) + (d.p.y * this.s.h)] = TMASK.FLOOR | TMASK.W;
+            this.m[d.p.x + ((d.p.y - 1) * this.s.h)] = TMASK.WALL;
+            this.m[d.p.x + ((d.p.y + 1) * this.s.h)] = TMASK.WALL;
         }
     };
     Level.prototype.scan = function (r, d) {
@@ -563,7 +577,7 @@ var Level = (function () {
         result = (x > 0 && y > 0 && x < this.s.w - r.s.w && y < this.s.h - r.s.h);
         for (var x0 = x; x0 < (x + w) && result; x0++) {
             for (var y0 = y; y0 < (y + h) && result; y0++) {
-                result = result && this.map[x0 + (y0 * this.s.h)] === undefined;
+                result = result && this.m[x0 + (y0 * this.s.h)] === undefined;
             }
         }
         return result;
@@ -574,9 +588,9 @@ var Level = (function () {
         for (var mx = o.x, rx = 0; rx < r.s.w; rx++) {
             for (var my = o.y, ry = 0; ry < r.s.h; ry++) {
                 if (rx === 0 || ry === 0 || rx === r.s.w - 1 || ry === r.s.h - 1)
-                    this.map[mx + (my * this.s.h)] = TMASK.WALL;
+                    this.m[mx + (my * this.s.h)] = TMASK.WALL;
                 else
-                    this.map[mx + (my * this.s.h)] = TMASK.FLOOR | TMASK.W;
+                    this.m[mx + (my * this.s.h)] = TMASK.FLOOR | TMASK.W;
                 my++;
             }
             mx++;
@@ -630,10 +644,24 @@ var Level = (function () {
         }
     };
     Level.prototype.update = function (delta) {
+        var lights = [];
+        for (var e in this.e) {
+            var ent = this.e[e].components;
+            if (ent['player']) {
+            }
+            if (ent['light'] && ent['pos']) {
+                var l = ent['light'].value;
+                l.p = ent['pos'].value;
+                l.calc(this.m, this.s);
+                lights.push(l);
+            }
+        }
+        if (lights.length > 0)
+            this.lm = Light.reLM(lights, this.s);
     };
     Level.prototype.render = function (ctx) {
         var _this = this;
-        this.map.forEach(function (t, i) {
+        this.m.forEach(function (t, i) {
             var ty = ~~(i / _this.s.w);
             var tx = i % _this.s.w;
             var tile;
@@ -642,26 +670,52 @@ var Level = (function () {
                 ctx.fillRect(tx * Game.T_S, ty * Game.T_S, Game.T_S, Game.T_S);
             }
             else if (t & TMASK.WALL) {
-                tile = SpriteSheetManager.spriteSheet("tiles").sprites[1];
+                tile = SSM.spriteSheet("tiles").sprites[1];
             }
             else if (t & TMASK.FLOOR) {
-                tile = SpriteSheetManager.spriteSheet("tiles").sprites[0];
+                tile = SSM.spriteSheet("tiles").sprites[0];
             }
             if (tile) {
                 ctx.drawImage(tile, 0, 0, Game.T_S, Game.T_S, ~~(tx * Game.T_S), ~~(ty * Game.T_S), Game.T_S, Game.T_S);
             }
         });
     };
-    Level.prototype.draw = function (ctx, camera) {
+    Level.prototype.draw = function (ctx, c) {
         if (this.rerender) {
-            this.render(this.renderCache.getContext("2d"));
+            this.render(this.rc.getContext("2d"));
             this.rerender = false;
         }
-        if (camera.z) {
-            ctx.drawImage(this.renderCache, ~~(camera.p.x * Game.T_S), ~~(camera.p.y * Game.T_S), ~~(Game.T_W * Game.T_S), ~~(Game.T_H * Game.T_S), 0, 0, ~~(Game.T_W * Game.T_S), ~~(Game.T_H * Game.T_S));
+        if (c.z) {
+            ctx.drawImage(this.rc, ~~(c.p.x * Game.T_S), ~~(c.p.y * Game.T_S), ~~(Game.T_W * Game.T_S), ~~(Game.T_H * Game.T_S), 0, 0, ~~(Game.T_W * Game.T_S), ~~(Game.T_H * Game.T_S));
+            this.e.forEach(function (e, i) {
+                var s = e.components['sprite'].value;
+                var p = e.components['pos'].value;
+                if (p.x > 0 && p.x < (c.p.x + c.s.w) && p.y > 0 && p.y < (c.p.y + c.s.h)) {
+                    ctx.drawImage(s, 0, 0, Game.T_S, Game.T_S, ~~((p.x - c.p.x) * Game.T_S), ~~((p.y - c.p.y) * Game.T_S), Game.T_S, Game.T_S);
+                }
+            });
         }
         else {
-            ctx.drawImage(this.renderCache, ~~(camera.p.x * Game.T_S), ~~(camera.p.y * Game.T_S), ~~(camera.s.w * Game.T_S), ~~(camera.s.h * Game.T_S), 0, 0, ~~((Game.T_W - 12) * Game.T_S), ~~((Game.T_H - 8) * Game.T_S));
+            ctx.drawImage(this.rc, ~~(c.p.x * Game.T_S), ~~(c.p.y * Game.T_S), ~~(c.s.w * Game.T_S), ~~(c.s.h * Game.T_S), 0, 0, ~~((Game.T_W - 12) * Game.T_S), ~~((Game.T_H - 8) * Game.T_S));
+            this.e.forEach(function (e, i) {
+                var s = e.components['sprite'].value;
+                var p = e.components['pos'].value;
+                if (p.x > 0 && p.x < (c.p.x + c.s.w) && p.y > 0 && p.y < (c.p.y + c.s.h)) {
+                    ctx.drawImage(s, 0, 0, Game.T_S, Game.T_S, ~~((p.x - c.p.x) * Game.T_S * 2), ~~((p.y - c.p.y) * Game.T_S * 2), Game.T_S * 2, Game.T_S * 2);
+                }
+            });
+            if (this.lm.length > 0) {
+                ctx.fillStyle = "black";
+                for (var x = c.p.x, rx = 0; x < c.p.x + c.s.w; x++) {
+                    for (var y = c.p.y, ry = 0; y < c.p.y + c.s.h; y++) {
+                        var val = this.lm[x + (y * this.s.h)];
+                        ctx.globalAlpha = 1 - (val ? val : 0);
+                        ctx.fillRect(rx * Game.T_S * 2, ry * Game.T_S * 2, Game.T_S * 2, Game.T_S * 2);
+                        ry++;
+                    }
+                    rx++;
+                }
+            }
         }
     };
     return Level;
@@ -758,20 +812,6 @@ var Light = (function () {
     };
     return Light;
 }());
-function randomInt(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-function shuffle(array) {
-    var currentIndex = array.length, temporaryValue, randomIndex;
-    while (0 !== currentIndex) {
-        randomIndex = Math.floor(Math.random() * currentIndex);
-        currentIndex -= 1;
-        temporaryValue = array[currentIndex];
-        array[currentIndex] = array[randomIndex];
-        array[randomIndex] = temporaryValue;
-    }
-    return array;
-}
 var WALL;
 (function (WALL) {
     WALL[WALL["N"] = 0] = "N";
@@ -829,13 +869,44 @@ var Room = (function () {
     };
     return Room;
 }());
+function randomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+function shuffle(array) {
+    var currentIndex = array.length, temporaryValue, randomIndex;
+    while (0 !== currentIndex) {
+        randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex -= 1;
+        temporaryValue = array[currentIndex];
+        array[currentIndex] = array[randomIndex];
+        array[randomIndex] = temporaryValue;
+    }
+    return array;
+}
 var GameScreen = (function (_super) {
     __extends(GameScreen, _super);
     function GameScreen(game) {
         var _this = _super.call(this, game) || this;
-        _this.camera = new Camera(new Pt(), new Dm(26, 14));
-        _this.light = new Light(new Pt(13, 7), 0.45);
+        _this.c = new Camera(new Pt(), new Dm(26, 14));
         _this.level = new Level(new Dm(250, 250));
+        {
+            var p = new GameEntity();
+            p.addComponent(new cPos());
+            p.addComponent(new cLight(new Light(new Pt(), 0.45)));
+            p.addComponent(new cAABB(new Dm(1, 1)));
+            p.addComponent(new cFlag('player', true));
+            p.addComponent(new cSprite(SSM.spriteSheet("sprites").sprites[2]));
+            _this.level.addEntity(p, new Pt(10, 10));
+        }
+        {
+            var p = new GameEntity();
+            p.addComponent(new cPos());
+            p.addComponent(new cLight(new Light(new Pt(), 0.45)));
+            p.addComponent(new cAABB(new Dm(1, 1)));
+            p.addComponent(new cFlag('player', true));
+            p.addComponent(new cSprite(SSM.spriteSheet("sprites").sprites[2]));
+            _this.level.addEntity(p, new Pt(20, 20));
+        }
         return _this;
     }
     GameScreen.prototype.transitionIn = function () {
@@ -848,55 +919,33 @@ var GameScreen = (function (_super) {
     GameScreen.prototype.update = function (delta) {
         this.level.update(delta);
         if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
-            this.game.engine.gsm.pop();
+            this.g.e.gsm.pop();
         }
         if (Input.KB.isBindDown(Input.KB.META_KEY.UP)) {
-            this.camera.p.y--;
-            this.light.p.y--;
+            this.c.p.y--;
             this.redraw = true;
         }
         if (Input.KB.isBindDown(Input.KB.META_KEY.DOWN)) {
-            this.camera.p.y++;
-            this.light.p.y++;
+            this.c.p.y++;
             this.redraw = true;
         }
         if (Input.KB.isBindDown(Input.KB.META_KEY.LEFT)) {
-            this.camera.p.x--;
-            this.light.p.x--;
+            this.c.p.x--;
             this.redraw = true;
         }
         if (Input.KB.isBindDown(Input.KB.META_KEY.RIGHT)) {
-            this.camera.p.x++;
-            this.light.p.x++;
+            this.c.p.x++;
             this.redraw = true;
         }
         if (Input.KB.wasDown(Input.KB.KEY.C)) {
-            this.camera.z = !this.camera.z;
+            this.c.z = !this.c.z;
             this.redraw = true;
-        }
-        if (this.redraw) {
-            var c = this.camera;
-            this.light.calc(this.level.map, this.level.s);
-            this.lightMap = Light.reLM([this.light], this.level.s);
         }
         this.requestingClear = this.redraw;
     };
     GameScreen.prototype.draw = function (ctx) {
         if (this.redraw) {
-            this.level.draw(ctx, this.camera);
-            ctx.fillStyle = "black";
-            for (var x = this.camera.p.x, rx = 0; x < this.camera.p.x + this.camera.s.w; x++) {
-                for (var y = this.camera.p.y, ry = 0; y < this.camera.p.y + this.camera.s.h; y++) {
-                    var val = this.lightMap[x + (y * this.level.s.h)];
-                    ctx.globalAlpha = 1 - (val ? val : 0);
-                    ctx.fillRect(rx * Game.T_S * 2, ry * Game.T_S * 2, Game.T_S * 2, Game.T_S * 2);
-                    ry++;
-                }
-                rx++;
-            }
-            ctx.globalAlpha = 1;
-            ctx.strokeStyle = "red";
-            ctx.strokeRect(13 * Game.T_S * 2, 7 * Game.T_S * 2, Game.T_S * 2, Game.T_S * 2);
+            this.level.draw(ctx, this.c);
         }
     };
     return GameScreen;
@@ -921,7 +970,7 @@ var MainMenu = (function (_super) {
         if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
             switch (this.selectedIndex) {
                 case 0:
-                    this.game.engine.gsm.push('game-screen');
+                    this.g.e.gsm.push('game-screen');
                     break;
                 case 1:
                     break;

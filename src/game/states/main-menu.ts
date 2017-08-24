@@ -23,7 +23,7 @@ class MainMenu extends GameState {
         if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
             switch (this.selectedIndex) {
                 case 0:
-                    this.game.engine.gsm.push('game-screen');
+                    this.g.e.gsm.push('game-screen');
                     break;
                 case 1:
                     break;

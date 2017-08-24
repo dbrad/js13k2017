@@ -17,26 +17,26 @@ namespace TMASK {
     export const FLOOR = 32;
 }
 class Level {
-    private entities: GameEntity[];
-    private objects: GameEntity[];
-    public map: Array<number> = []; // x + (y * w)
-    private entrance: Pt;
-    private exit: Pt;
-    private renderCache: HTMLCanvasElement;
+    private e: GameEntity[] = [];
+    private o: GameEntity[] = [];
+    public m: number[] = [];
+    public lm: number[] = [];
+    private rc: HTMLCanvasElement;
     rerender: boolean = true;
     s: Dm;
     constructor(s: Dm = new Dm(50, 50)) {
         this.s = s;
-        this.renderCache = document.createElement("canvas");
-        this.renderCache.width = (s.w * Game.T_S);
-        this.renderCache.height = (s.h * Game.T_S);
-        (<Context2D>this.renderCache.getContext("2d")).mozImageSmoothingEnabled = false;
-        (<Context2D>this.renderCache.getContext("2d")).imageSmoothingEnabled = false;
+        this.rc = document.createElement("canvas");
+        this.rc.width = (s.w * Game.T_S);
+        this.rc.height = (s.h * Game.T_S);
+        (<Context2D>this.rc.getContext("2d")).mozImageSmoothingEnabled = false;
+        (<Context2D>this.rc.getContext("2d")).imageSmoothingEnabled = false;
+
         this.generate();
     }
     addEntity(entity: GameEntity, pos: Pt) {
-        (<ECS.Pos>entity.components["position"]).value = pos;
-        this.entities.push(entity);
+        (<cPos>entity.components["pos"]).value = pos;
+        this.e.push(entity);
     }
     private calcOrigin(r: Room, d: { p: Pt, w: WALL }): Pt {
         let N = d.w === WALL.N,
@@ -54,17 +54,17 @@ class Level {
         return new Pt(x, y);
     }
     private addDoor(r: Room, d: { p: Pt, w: WALL }): void {
-        this.map[d.p.x + (d.p.y * this.s.h)] = TMASK.FLOOR | TMASK.W;
+        this.m[d.p.x + (d.p.y * this.s.h)] = TMASK.FLOOR | TMASK.W;
         if (d.w === WALL.N || d.w === WALL.S) {
-            this.map[(d.p.x - 1) + (d.p.y * this.s.h)] = TMASK.WALL;
-            this.map[(d.p.x + 1) + (d.p.y * this.s.h)] = TMASK.WALL;
-            this.map[d.p.x + ((d.p.y - 1) * this.s.h)] = TMASK.FLOOR | TMASK.W;
-            this.map[d.p.x + ((d.p.y + 1) * this.s.h)] = TMASK.FLOOR | TMASK.W;
+            this.m[(d.p.x - 1) + (d.p.y * this.s.h)] = TMASK.WALL;
+            this.m[(d.p.x + 1) + (d.p.y * this.s.h)] = TMASK.WALL;
+            this.m[d.p.x + ((d.p.y - 1) * this.s.h)] = TMASK.FLOOR | TMASK.W;
+            this.m[d.p.x + ((d.p.y + 1) * this.s.h)] = TMASK.FLOOR | TMASK.W;
         } else {
-            this.map[(d.p.x - 1) + (d.p.y * this.s.h)] = TMASK.FLOOR | TMASK.W;
-            this.map[(d.p.x + 1) + (d.p.y * this.s.h)] = TMASK.FLOOR | TMASK.W;
-            this.map[d.p.x + ((d.p.y - 1) * this.s.h)] = TMASK.WALL;
-            this.map[d.p.x + ((d.p.y + 1) * this.s.h)] = TMASK.WALL;
+            this.m[(d.p.x - 1) + (d.p.y * this.s.h)] = TMASK.FLOOR | TMASK.W;
+            this.m[(d.p.x + 1) + (d.p.y * this.s.h)] = TMASK.FLOOR | TMASK.W;
+            this.m[d.p.x + ((d.p.y - 1) * this.s.h)] = TMASK.WALL;
+            this.m[d.p.x + ((d.p.y + 1) * this.s.h)] = TMASK.WALL;
         }
     }
     private scan(r: Room, d: { p: Pt, w: WALL }): boolean {
@@ -81,7 +81,7 @@ class Level {
         result = (x > 0 && y > 0 && x < this.s.w - r.s.w && y < this.s.h - r.s.h);
         for (let x0: number = x; x0 < (x + w) && result; x0++) {
             for (let y0: number = y; y0 < (y + h) && result; y0++) {
-                result = result && this.map[x0 + (y0 * this.s.h)] === undefined;
+                result = result && this.m[x0 + (y0 * this.s.h)] === undefined;
             }
         }
         return result;
@@ -92,9 +92,9 @@ class Level {
         for (let mx = o.x, rx = 0; rx < r.s.w; rx++) {
             for (let my = o.y, ry = 0; ry < r.s.h; ry++) {
                 if (rx === 0 || ry === 0 || rx === r.s.w - 1 || ry === r.s.h - 1)
-                    this.map[mx + (my * this.s.h)] = TMASK.WALL;
+                    this.m[mx + (my * this.s.h)] = TMASK.WALL;
                 else
-                    this.map[mx + (my * this.s.h)] = TMASK.FLOOR | TMASK.W;
+                    this.m[mx + (my * this.s.h)] = TMASK.FLOOR | TMASK.W;
                 my++;
             }
             mx++;
@@ -152,6 +152,22 @@ class Level {
         }
     }
     update(delta: number): void {
+        let lights: Light[] = [];
+        for(let e in this.e) {
+            let ent = this.e[e].components;
+            if(ent['player']) {
+
+            }
+            if(ent['light'] && ent['pos']) {
+                let l = (<Light>ent['light'].value);
+                l.p = (<Pt>ent['pos'].value);
+                l.calc(this.m, this.s);
+                lights.push(l);
+            }
+        }
+        if(lights.length >0)
+            this.lm = Light.reLM(lights, this.s);
+        
         // foreach entity
         // input
         // collide
@@ -160,7 +176,7 @@ class Level {
         // interact
     }
     render(ctx: Context2D): void {
-        this.map.forEach((t, i) => {
+        this.m.forEach((t, i) => {
             let ty = ~~(i / this.s.w);
             let tx = i % this.s.w;
 
@@ -169,9 +185,9 @@ class Level {
                 ctx.fillStyle = "#000000"; // No cell at location
                 ctx.fillRect(tx * Game.T_S, ty * Game.T_S, Game.T_S, Game.T_S);
             } else if (t & TMASK.WALL) {
-                tile = SpriteSheetManager.spriteSheet("tiles").sprites[1];
+                tile = SSM.spriteSheet("tiles").sprites[1];
             } else if (t & TMASK.FLOOR) {
-                tile = SpriteSheetManager.spriteSheet("tiles").sprites[0];                            
+                tile = SSM.spriteSheet("tiles").sprites[0];                            
             }
             if(tile) {
                 ctx.drawImage(tile,
@@ -183,26 +199,59 @@ class Level {
         });
     }
 
-    draw(ctx: Context2D, camera: Camera) {
+    draw(ctx: Context2D, c: Camera) {
         if (this.rerender) {
-            this.render(<Context2D>this.renderCache.getContext("2d"))
+            this.render(<Context2D>this.rc.getContext("2d"))
             this.rerender = false;
         }
-        if(camera.z) {
+        if(c.z) {
             ctx.drawImage(
-                this.renderCache,
-                ~~(camera.p.x * Game.T_S), ~~(camera.p.y * Game.T_S),
+                this.rc,
+                ~~(c.p.x * Game.T_S), ~~(c.p.y * Game.T_S),
                 ~~(Game.T_W * Game.T_S), ~~(Game.T_H * Game.T_S),
                 0, 0,
                 ~~(Game.T_W * Game.T_S), ~~(Game.T_H * Game.T_S));
+                this.e.forEach((e, i) => {
+                    let s = <HTMLCanvasElement>e.components['sprite'].value;
+                    let p = <Pt>e.components['pos'].value;
+                    if(p.x > 0 && p.x < (c.p.x + c.s.w) && p.y > 0 && p.y < (c.p.y + c.s.h)) {
+                        ctx.drawImage(s,
+                            0, 0,
+                            Game.T_S, Game.T_S,
+                            ~~((p.x - c.p.x) * Game.T_S ), ~~((p.y - c.p.y) * Game.T_S),
+                            Game.T_S, Game.T_S);
+                    }
+                });
         } else {
             ctx.drawImage(
-                this.renderCache,
-                ~~(camera.p.x * Game.T_S), ~~(camera.p.y * Game.T_S),
-                ~~(camera.s.w * Game.T_S), ~~(camera.s.h * Game.T_S),
+                this.rc,
+                ~~(c.p.x * Game.T_S), ~~(c.p.y * Game.T_S),
+                ~~(c.s.w * Game.T_S), ~~(c.s.h * Game.T_S),
                 0, 0,
                 ~~((Game.T_W - 12) * Game.T_S), ~~((Game.T_H - 8) * Game.T_S));
+            this.e.forEach((e, i) => {
+                let s = <HTMLCanvasElement>e.components['sprite'].value;
+                let p = <Pt>e.components['pos'].value;
+                if(p.x > 0 && p.x < (c.p.x + c.s.w) && p.y > 0 && p.y < (c.p.y + c.s.h)) {
+                    ctx.drawImage(s,
+                        0, 0,
+                        Game.T_S, Game.T_S,
+                        ~~((p.x - c.p.x) * Game.T_S * 2), ~~((p.y - c.p.y) * Game.T_S * 2),
+                        Game.T_S*2, Game.T_S*2);
+                }
+            });
+            if(this.lm.length > 0) {
+                ctx.fillStyle = "black";
+                for (let x = c.p.x, rx = 0; x < c.p.x + c.s.w; x++) {
+                    for (let y = c.p.y, ry = 0; y < c.p.y + c.s.h; y++) {
+                        let val = this.lm[x + (y * this.s.h)];
+                        ctx.globalAlpha = 1 - (val ? val : 0);
+                        ctx.fillRect(rx * Game.T_S * 2, ry * Game.T_S * 2, Game.T_S * 2, Game.T_S * 2);
+                        ry++;
+                    }
+                    rx++;
+                }
+            }
         }
-        
     }
 }

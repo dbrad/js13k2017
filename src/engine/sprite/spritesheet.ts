@@ -2,6 +2,9 @@
 /// <reference path="../types/point.ts" />
 /// <reference path="../types/dimension.ts" />
 
+/**
+ * @class SpriteSheet
+ */
 class SpriteSheet {
     private image: any;
     sprites: HTMLCanvasElement[] = [];

@@ -30,31 +30,31 @@ class Engine {
 
     update(delta: number):void {
         if(!this.systemPause) {
-            this.gsm.current.update(delta);
+            this.gsm.cur.update(delta);
         }
     }
 
     clearScreen: boolean = false;
     redraw: boolean = false;
     draw(): void {
-        if(this.clearScreen || this.gsm.current.requestingClear) {
+        if(this.clearScreen || this.gsm.cur.requestingClear) {
             this.ctx.clearRect(0, 0, this.screen.width, this.screen.height);
             this.bufferCtx.clearRect(0, 0, this.screen.width, this.screen.height);
-            this.clearScreen = this.gsm.current.requestingClear = false;
+            this.clearScreen = this.gsm.cur.requestingClear = false;
         }
-        if(!this.systemPause && (this.redraw || this.gsm.current.redraw)) {
-            this.gsm.current.draw(this.bufferCtx);
+        if(!this.systemPause && (this.redraw || this.gsm.cur.redraw)) {
+            this.gsm.cur.draw(this.bufferCtx);
             this.ctx.drawImage(
                 this.buffer,
                 0, 0, Game.P_W, Game.P_H,
                 0, 0, Game.P_W, Game.P_H);
-            this.redraw = this.gsm.current.redraw = false;
+            this.redraw = this.gsm.cur.redraw = false;
         } else if (this.systemPause && this.redraw) {
             this.ctx.globalAlpha = 0.7;
             this.ctx.fillStyle = "black";
             this.ctx.fillRect(0, 0, Game.P_W, Game.P_H);
             this.ctx.globalAlpha = 1.0;
-            this.redraw = this.gsm.current.redraw = false;
+            this.redraw = this.gsm.cur.redraw = false;
         }
     }
     
@@ -82,6 +82,6 @@ class Engine {
     }
     unpause(): void {
         this.systemPause = false;        
-        this.gsm.current.redraw = this.clearScreen = true;
+        this.gsm.cur.redraw = this.clearScreen = true;
     }
 }
