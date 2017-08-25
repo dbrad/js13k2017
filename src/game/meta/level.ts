@@ -22,9 +22,11 @@ class Level {
     public m: number[] = [];
     public lm: number[] = [];
     private rc: HTMLCanvasElement;
-    rerender: boolean = true;
-    s: Dm;
-    constructor(s: Dm = new Dm(50, 50)) {
+    private r: boolean = true;
+    private parent: GameState;
+    public d: boolean = true;
+    public s: Dm;
+    constructor(s: Dm = new Dm(50, 50), parent: GameState) {
         this.s = s;
         this.rc = document.createElement("canvas");
         this.rc.width = (s.w * Game.T_S);
@@ -32,10 +34,12 @@ class Level {
         (<Context2D>this.rc.getContext("2d")).mozImageSmoothingEnabled = false;
         (<Context2D>this.rc.getContext("2d")).imageSmoothingEnabled = false;
 
+        this.parent = parent;
+
         this.generate();
     }
     addEntity(entity: GameEntity, pos: Pt) {
-        (<cPos>entity.components["pos"]).value = pos;
+        (<cP>entity.components["p-pos"]).value = pos;
         this.e.push(entity);
     }
     private calcOrigin(r: Room, d: { p: Pt, w: WALL }): Pt {
@@ -151,27 +155,42 @@ class Level {
             }
         }
     }
-    update(delta: number): void {
+    update(delta: number, c: Camera): void {
         let lights: Light[] = [];
-        for(let e in this.e) {
+        for (let e in this.e) {
             let ent = this.e[e].components;
-            if(ent['player']) {
-
+            if (ent['input'] && ent['input'].value) {
+                input(this.e[e]);
             }
-            if(ent['light'] && ent['pos']) {
-                let l = (<Light>ent['light'].value);
-                l.p = (<Pt>ent['pos'].value);
-                l.calc(this.m, this.s);
-                lights.push(l);
+            if (ent['aabb']) {
+                collision(this.e[e], this)
+            }
+            if (ent['p-move']) {
+                if(ent['t-move']) {
+                    (<cTimer>ent['t-move']).cur += delta;
+                    this.d = this.d || movement(this.e[e]);
+                    if (this.d) {
+                        let p = (<Pt>ent['p-pos'].value);
+                        c.p.x = p.x - ~~(c.s.w / 2);
+                        c.p.y = p.y - ~~(c.s.h / 2);
+                        if(ent['s-move']) {
+                            this.parent.g.ae.beep(ent['s-move'].value);
+                        }
+                    }
+                }
+            }
+            if (this.d) {
+                if (ent['light'] && ent['p-pos']) {
+                    let l = (<Light>ent['light'].value);
+                    l.p = (<Pt>ent['p-pos'].value);
+                    l.calc(this.m, this.s);
+                    lights.push(l);
+                }
             }
         }
-        if(lights.length >0)
+        if (lights.length > 0)
             this.lm = Light.reLM(lights, this.s);
-        
-        // foreach entity
-        // input
-        // collide
-        // move
+
         // sound
         // interact
     }
@@ -187,9 +206,9 @@ class Level {
             } else if (t & TMASK.WALL) {
                 tile = SSM.spriteSheet("tiles").sprites[1];
             } else if (t & TMASK.FLOOR) {
-                tile = SSM.spriteSheet("tiles").sprites[0];                            
+                tile = SSM.spriteSheet("tiles").sprites[0];
             }
-            if(tile) {
+            if (tile) {
                 ctx.drawImage(tile,
                     0, 0,
                     Game.T_S, Game.T_S,
@@ -200,28 +219,28 @@ class Level {
     }
 
     draw(ctx: Context2D, c: Camera) {
-        if (this.rerender) {
-            this.render(<Context2D>this.rc.getContext("2d"))
-            this.rerender = false;
+        if (this.r) {
+            this.render(<Context2D>this.rc.getContext("2d"));
+            this.r = false;
         }
-        if(c.z) {
+        if (c.z) {
+            // DEBUG AREA
             ctx.drawImage(
                 this.rc,
                 ~~(c.p.x * Game.T_S), ~~(c.p.y * Game.T_S),
                 ~~(Game.T_W * Game.T_S), ~~(Game.T_H * Game.T_S),
                 0, 0,
                 ~~(Game.T_W * Game.T_S), ~~(Game.T_H * Game.T_S));
-                this.e.forEach((e, i) => {
-                    let s = <HTMLCanvasElement>e.components['sprite'].value;
-                    let p = <Pt>e.components['pos'].value;
-                    if(p.x > 0 && p.x < (c.p.x + c.s.w) && p.y > 0 && p.y < (c.p.y + c.s.h)) {
-                        ctx.drawImage(s,
-                            0, 0,
-                            Game.T_S, Game.T_S,
-                            ~~((p.x - c.p.x) * Game.T_S ), ~~((p.y - c.p.y) * Game.T_S),
-                            Game.T_S, Game.T_S);
-                    }
-                });
+            this.e.forEach((e, i) => {
+                let s = <HTMLCanvasElement>e.components['sprite'].value;
+                let p = <Pt>e.components['p-pos'].value;
+                ctx.drawImage(s,
+                    0, 0,
+                    Game.T_S, Game.T_S,
+                    ~~((p.x - c.p.x) * Game.T_S), ~~((p.y - c.p.y) * Game.T_S),
+                    Game.T_S, Game.T_S);
+            });
+            // END DEBUG AREA
         } else {
             ctx.drawImage(
                 this.rc,
@@ -231,26 +250,27 @@ class Level {
                 ~~((Game.T_W - 12) * Game.T_S), ~~((Game.T_H - 8) * Game.T_S));
             this.e.forEach((e, i) => {
                 let s = <HTMLCanvasElement>e.components['sprite'].value;
-                let p = <Pt>e.components['pos'].value;
-                if(p.x > 0 && p.x < (c.p.x + c.s.w) && p.y > 0 && p.y < (c.p.y + c.s.h)) {
+                let p = <Pt>e.components['p-pos'].value;
+                if (p.x > 0 && p.x < (c.p.x + c.s.w) && p.y > 0 && p.y < (c.p.y + c.s.h)) {
                     ctx.drawImage(s,
                         0, 0,
                         Game.T_S, Game.T_S,
                         ~~((p.x - c.p.x) * Game.T_S * 2), ~~((p.y - c.p.y) * Game.T_S * 2),
-                        Game.T_S*2, Game.T_S*2);
+                        Game.T_S * 2, Game.T_S * 2);
                 }
             });
-            if(this.lm.length > 0) {
+            if (this.lm.length > 0) {
                 ctx.fillStyle = "black";
                 for (let x = c.p.x, rx = 0; x < c.p.x + c.s.w; x++) {
                     for (let y = c.p.y, ry = 0; y < c.p.y + c.s.h; y++) {
                         let val = this.lm[x + (y * this.s.h)];
-                        ctx.globalAlpha = 1 - (val ? val : 0);
+                        ctx.globalAlpha = (val ? val : 1);
                         ctx.fillRect(rx * Game.T_S * 2, ry * Game.T_S * 2, Game.T_S * 2, Game.T_S * 2);
                         ry++;
                     }
                     rx++;
                 }
+                ctx.globalAlpha = 1;
             }
         }
     }

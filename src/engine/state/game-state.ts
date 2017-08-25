@@ -22,7 +22,7 @@ abstract class GameState {
      * @type {Game}
      * @memberof GameState
      */
-    protected g: Game;
+    public g: Game;
 
     /**
      * @type {boolean}

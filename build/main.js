@@ -445,15 +445,15 @@ var cAABB = (function (_super) {
     }
     return cAABB;
 }(Component));
-var cPos = (function (_super) {
-    __extends(cPos, _super);
-    function cPos(p) {
+var cP = (function (_super) {
+    __extends(cP, _super);
+    function cP(name, p) {
         if (p === void 0) { p = new Pt(); }
-        var _this = _super.call(this, 'pos') || this;
+        var _this = _super.call(this, 'p-' + name) || this;
         _this.value = p;
         return _this;
     }
-    return cPos;
+    return cP;
 }(Component));
 var cMove = (function (_super) {
     __extends(cMove, _super);
@@ -510,6 +510,25 @@ var cLight = (function (_super) {
     }
     return cLight;
 }(Component));
+var cSound = (function (_super) {
+    __extends(cSound, _super);
+    function cSound(name, beep) {
+        var _this = _super.call(this, 's-' + name) || this;
+        _this.value = beep;
+        return _this;
+    }
+    return cSound;
+}(Component));
+var cTimer = (function (_super) {
+    __extends(cTimer, _super);
+    function cTimer(name, interval) {
+        var _this = _super.call(this, 't-' + name) || this;
+        _this.cur = 0;
+        _this.value = interval;
+        return _this;
+    }
+    return cTimer;
+}(Component));
 var TMASK;
 (function (TMASK) {
     TMASK.D = 1;
@@ -520,23 +539,25 @@ var TMASK;
     TMASK.FLOOR = 32;
 })(TMASK || (TMASK = {}));
 var Level = (function () {
-    function Level(s) {
+    function Level(s, parent) {
         if (s === void 0) { s = new Dm(50, 50); }
         this.e = [];
         this.o = [];
         this.m = [];
         this.lm = [];
-        this.rerender = true;
+        this.r = true;
+        this.d = true;
         this.s = s;
         this.rc = document.createElement("canvas");
         this.rc.width = (s.w * Game.T_S);
         this.rc.height = (s.h * Game.T_S);
         this.rc.getContext("2d").mozImageSmoothingEnabled = false;
         this.rc.getContext("2d").imageSmoothingEnabled = false;
+        this.parent = parent;
         this.generate();
     }
     Level.prototype.addEntity = function (entity, pos) {
-        entity.components["pos"].value = pos;
+        entity.components["p-pos"].value = pos;
         this.e.push(entity);
     };
     Level.prototype.calcOrigin = function (r, d) {
@@ -643,17 +664,37 @@ var Level = (function () {
             }
         }
     };
-    Level.prototype.update = function (delta) {
+    Level.prototype.update = function (delta, c) {
         var lights = [];
         for (var e in this.e) {
             var ent = this.e[e].components;
-            if (ent['player']) {
+            if (ent['input'] && ent['input'].value) {
+                input(this.e[e]);
             }
-            if (ent['light'] && ent['pos']) {
-                var l = ent['light'].value;
-                l.p = ent['pos'].value;
-                l.calc(this.m, this.s);
-                lights.push(l);
+            if (ent['aabb']) {
+                collision(this.e[e], this);
+            }
+            if (ent['p-move']) {
+                if (ent['t-move']) {
+                    ent['t-move'].cur += delta;
+                    this.d = this.d || movement(this.e[e]);
+                    if (this.d) {
+                        var p = ent['p-pos'].value;
+                        c.p.x = p.x - ~~(c.s.w / 2);
+                        c.p.y = p.y - ~~(c.s.h / 2);
+                        if (ent['s-move']) {
+                            this.parent.g.ae.beep(ent['s-move'].value);
+                        }
+                    }
+                }
+            }
+            if (this.d) {
+                if (ent['light'] && ent['p-pos']) {
+                    var l = ent['light'].value;
+                    l.p = ent['p-pos'].value;
+                    l.calc(this.m, this.s);
+                    lights.push(l);
+                }
             }
         }
         if (lights.length > 0)
@@ -681,25 +722,23 @@ var Level = (function () {
         });
     };
     Level.prototype.draw = function (ctx, c) {
-        if (this.rerender) {
+        if (this.r) {
             this.render(this.rc.getContext("2d"));
-            this.rerender = false;
+            this.r = false;
         }
         if (c.z) {
             ctx.drawImage(this.rc, ~~(c.p.x * Game.T_S), ~~(c.p.y * Game.T_S), ~~(Game.T_W * Game.T_S), ~~(Game.T_H * Game.T_S), 0, 0, ~~(Game.T_W * Game.T_S), ~~(Game.T_H * Game.T_S));
             this.e.forEach(function (e, i) {
                 var s = e.components['sprite'].value;
-                var p = e.components['pos'].value;
-                if (p.x > 0 && p.x < (c.p.x + c.s.w) && p.y > 0 && p.y < (c.p.y + c.s.h)) {
-                    ctx.drawImage(s, 0, 0, Game.T_S, Game.T_S, ~~((p.x - c.p.x) * Game.T_S), ~~((p.y - c.p.y) * Game.T_S), Game.T_S, Game.T_S);
-                }
+                var p = e.components['p-pos'].value;
+                ctx.drawImage(s, 0, 0, Game.T_S, Game.T_S, ~~((p.x - c.p.x) * Game.T_S), ~~((p.y - c.p.y) * Game.T_S), Game.T_S, Game.T_S);
             });
         }
         else {
             ctx.drawImage(this.rc, ~~(c.p.x * Game.T_S), ~~(c.p.y * Game.T_S), ~~(c.s.w * Game.T_S), ~~(c.s.h * Game.T_S), 0, 0, ~~((Game.T_W - 12) * Game.T_S), ~~((Game.T_H - 8) * Game.T_S));
             this.e.forEach(function (e, i) {
                 var s = e.components['sprite'].value;
-                var p = e.components['pos'].value;
+                var p = e.components['p-pos'].value;
                 if (p.x > 0 && p.x < (c.p.x + c.s.w) && p.y > 0 && p.y < (c.p.y + c.s.h)) {
                     ctx.drawImage(s, 0, 0, Game.T_S, Game.T_S, ~~((p.x - c.p.x) * Game.T_S * 2), ~~((p.y - c.p.y) * Game.T_S * 2), Game.T_S * 2, Game.T_S * 2);
                 }
@@ -709,12 +748,13 @@ var Level = (function () {
                 for (var x = c.p.x, rx = 0; x < c.p.x + c.s.w; x++) {
                     for (var y = c.p.y, ry = 0; y < c.p.y + c.s.h; y++) {
                         var val = this.lm[x + (y * this.s.h)];
-                        ctx.globalAlpha = 1 - (val ? val : 0);
+                        ctx.globalAlpha = (val ? val : 1);
                         ctx.fillRect(rx * Game.T_S * 2, ry * Game.T_S * 2, Game.T_S * 2, Game.T_S * 2);
                         ry++;
                     }
                     rx++;
                 }
+                ctx.globalAlpha = 1;
             }
         }
     };
@@ -723,8 +763,8 @@ var Level = (function () {
 var Light = (function () {
     function Light(p, i) {
         this.p = p;
-        this.i = .80;
-        this.r = 6;
+        this.i = i;
+        this.r = 7;
     }
     Light.prototype.calc = function (m, s) {
         this.a = [];
@@ -732,6 +772,7 @@ var Light = (function () {
         for (var e in es) {
             var l = Light.pol(this.p.x, this.p.y, es[e].x, es[e].y);
             var mx = this.i / l.length;
+            var haw = 0;
             for (var tl in l) {
                 if (l[tl].x < 0 || l[tl].x >= s.w ||
                     l[tl].y < 0 || l[tl].y >= s.h) {
@@ -739,10 +780,19 @@ var Light = (function () {
                 }
                 var idx = ((l[tl].y * s.w) + l[tl].x);
                 var st = mx * (l.length - parseInt(tl));
-                if (!(idx in this.a) || this.a[idx] < st) {
-                    this.a[idx] = (st > 1 ? 1 : st);
+                if (m[idx] & TMASK.FLOOR && haw > 0) {
+                    break;
+                }
+                if (!(idx in this.a) || this.a[idx] > st) {
+                    this.a[idx] = 1 - (st > 1 ? 1 : st);
+                }
+                if (m[idx] & TMASK.WALL && haw > 1) {
+                    break;
                 }
                 if (m[idx] & TMASK.WALL) {
+                    haw++;
+                }
+                if (!m[idx]) {
                     break;
                 }
             }
@@ -752,7 +802,7 @@ var Light = (function () {
         var lm = [];
         for (var l in al) {
             for (var idx in al[l].a) {
-                if (!lm[idx] || lm[idx] < al[l].a[idx]) {
+                if (!lm[idx] || lm[idx] > al[l].a[idx]) {
                     lm[idx] = al[l].a[idx];
                 }
             }
@@ -789,7 +839,7 @@ var Light = (function () {
         var l = [];
         var x = cr;
         var y = 0;
-        var o2 = Math.floor(1 - x);
+        var o2 = ~~(1 - x);
         while (y <= x) {
             l.push(new Pt(x + cx, y + cy));
             l.push(new Pt(y + cx, x + cy));
@@ -869,6 +919,39 @@ var Room = (function () {
     };
     return Room;
 }());
+function input(e) {
+    var m = e.components['p-move'].value;
+    if (Input.KB.isBindDown(Input.KB.META_KEY.UP)) {
+        m.y = -1;
+    }
+    if (Input.KB.isBindDown(Input.KB.META_KEY.DOWN)) {
+        m.y = 1;
+    }
+    if (Input.KB.isBindDown(Input.KB.META_KEY.LEFT)) {
+        m.x = -1;
+    }
+    if (Input.KB.isBindDown(Input.KB.META_KEY.RIGHT)) {
+        m.x = 1;
+    }
+}
+function movement(e) {
+    var ec = e.components;
+    var t = ec['t-move'];
+    if (t.cur >= t.value) {
+        t.cur = 0;
+        var p = ec['p-pos'];
+        var m = ec['p-move'].value;
+        if (m.x !== 0 || m.y !== 0) {
+            p.value.x += m.x;
+            p.value.y += m.y;
+            m.x = m.y = 0;
+            return true;
+        }
+    }
+    return false;
+}
+function collision(e, l) {
+}
 function randomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -888,20 +971,24 @@ var GameScreen = (function (_super) {
     function GameScreen(game) {
         var _this = _super.call(this, game) || this;
         _this.c = new Camera(new Pt(), new Dm(26, 14));
-        _this.level = new Level(new Dm(250, 250));
+        _this.level = new Level(new Dm(250, 250), _this);
         {
             var p = new GameEntity();
-            p.addComponent(new cPos());
-            p.addComponent(new cLight(new Light(new Pt(), 0.45)));
+            p.addComponent(new cP('pos'));
+            p.addComponent(new cP('move'));
+            p.addComponent(new cSound('move', new Beep(50, 5, 'sine', .25, 1)));
+            p.addComponent(new cTimer('move', 150));
+            p.addComponent(new cLight(new Light(new Pt(), 0.75)));
             p.addComponent(new cAABB(new Dm(1, 1)));
             p.addComponent(new cFlag('player', true));
+            p.addComponent(new cFlag('input', true));
             p.addComponent(new cSprite(SSM.spriteSheet("sprites").sprites[2]));
             _this.level.addEntity(p, new Pt(10, 10));
         }
         {
             var p = new GameEntity();
-            p.addComponent(new cPos());
-            p.addComponent(new cLight(new Light(new Pt(), 0.45)));
+            p.addComponent(new cP('pos'));
+            p.addComponent(new cLight(new Light(new Pt(), 0.75)));
             p.addComponent(new cAABB(new Dm(1, 1)));
             p.addComponent(new cFlag('player', true));
             p.addComponent(new cSprite(SSM.spriteSheet("sprites").sprites[2]));
@@ -917,29 +1004,17 @@ var GameScreen = (function (_super) {
         _super.prototype.transitionOut.call(this);
     };
     GameScreen.prototype.update = function (delta) {
-        this.level.update(delta);
+        this.level.update(delta, this.c);
         if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
             this.g.e.gsm.pop();
-        }
-        if (Input.KB.isBindDown(Input.KB.META_KEY.UP)) {
-            this.c.p.y--;
-            this.redraw = true;
-        }
-        if (Input.KB.isBindDown(Input.KB.META_KEY.DOWN)) {
-            this.c.p.y++;
-            this.redraw = true;
-        }
-        if (Input.KB.isBindDown(Input.KB.META_KEY.LEFT)) {
-            this.c.p.x--;
-            this.redraw = true;
-        }
-        if (Input.KB.isBindDown(Input.KB.META_KEY.RIGHT)) {
-            this.c.p.x++;
-            this.redraw = true;
         }
         if (Input.KB.wasDown(Input.KB.KEY.C)) {
             this.c.z = !this.c.z;
             this.redraw = true;
+        }
+        if (this.level.d) {
+            this.redraw = true;
+            this.level.d = false;
         }
         this.requestingClear = this.redraw;
     };

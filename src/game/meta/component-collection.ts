@@ -9,9 +9,9 @@ class cAABB extends Component<Dm> {
 	}
 }
 
-class cPos extends Component<Pt> {
-	constructor(p: Pt = new Pt()) {
-		super('pos');
+class cP extends Component<Pt> {
+	constructor(name: string, p: Pt = new Pt()) {
+		super('p-' + name);
 		this.value = p;
 	}
 }
@@ -55,5 +55,19 @@ class cLight extends Component<Light> {
 	constructor(light: Light) {
 		super('light');
 		this.value = light;
+	}
+}
+class cSound extends Component<Beep> {
+	constructor(name: string, beep: Beep) {
+		super('s-' + name);
+		this.value = beep;
+	}
+}
+
+class cTimer extends Component<number> {
+	public cur: number = 0;
+	constructor(name: string, interval: number) {
+		super('t-' + name);
+		this.value = interval;
 	}
 }

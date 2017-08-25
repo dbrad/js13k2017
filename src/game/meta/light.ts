@@ -6,8 +6,8 @@ class Light {
     a: number[];
     constructor(p: Pt, i: number) {
         this.p = p;
-        this.i = .80; //i;
-        this.r = 6; //~~(i / 0.05);
+        this.i = i;
+        this.r = 7; //~~(i / 0.05);
     }
     calc(m: number[], s: Dm) {
         this.a = [];
@@ -16,7 +16,7 @@ class Light {
         for (let e in es) {
             let l = Light.pol(this.p.x, this.p.y, es[e].x, es[e].y);
             let mx = this.i / l.length;
-
+            let haw = 0;
             for (let tl in l) {
                 if (l[tl].x < 0 || l[tl].x >= s.w ||
                     l[tl].y < 0 || l[tl].y >= s.h) { break; }
@@ -24,10 +24,14 @@ class Light {
                 let idx = ((l[tl].y * s.w) + l[tl].x);
                 let st = mx * (l.length - parseInt(tl));
 
-                if (!(idx in this.a) || this.a[idx] < st) {
-                    this.a[idx] = (st > 1 ? 1 : st);
+                if (m[idx] & TMASK.FLOOR && haw > 0) { break; }                
+                
+                if (!(idx in this.a) || this.a[idx] > st) {
+                    this.a[idx] = 1 - (st > 1 ? 1 : st);
                 }
-                if (m[idx] & TMASK.WALL) { break; }
+                if (m[idx] & TMASK.WALL && haw > 1) { break; }          
+                if (m[idx] & TMASK.WALL) { haw++; }          
+                if (!m[idx]) { break; }
             }
         }
     }
@@ -36,7 +40,7 @@ class Light {
         let lm: number[] = [];
         for (let l in al) {
             for (let idx in al[l].a) {
-                if (!lm[idx] || lm[idx] < al[l].a[idx]) {
+                if (!lm[idx] || lm[idx] > al[l].a[idx]) {
                     lm[idx] = al[l].a[idx];
                 }
             }
@@ -74,7 +78,7 @@ class Light {
         let l: Pt[] = [];
         let x = cr;
         let y = 0;
-        let o2 = Math.floor(1 - x);
+        let o2 = ~~(1 - x);
         while (y <= x) {
             l.push(new Pt(x + cx, y + cy));
             l.push(new Pt(y + cx, x + cy));
