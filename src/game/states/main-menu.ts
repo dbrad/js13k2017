@@ -2,8 +2,8 @@
 
 class MainMenu extends GameState {
 
-    constructor(game: Game) {
-        super(game);
+    constructor() {
+        super();
     }
 
     private selectedIndex: number = 0;
@@ -23,7 +23,7 @@ class MainMenu extends GameState {
         if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
             switch (this.selectedIndex) {
                 case 0:
-                    this.g.e.gsm.push('game-screen');
+                    Game.i.e.gsm.push('game-screen');
                     break;
                 case 1:
                     break;

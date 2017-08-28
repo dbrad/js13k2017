@@ -7,7 +7,7 @@ class Light {
     constructor(p: Pt, i: number) {
         this.p = p;
         this.i = i;
-        this.r = 7; //~~(i / 0.05);
+        this.r = 8; //~~(i / 0.05);
     }
     calc(m: number[], s: Dm) {
         this.a = [];
@@ -29,6 +29,8 @@ class Light {
                 if (!(idx in this.a) || this.a[idx] > st) {
                     this.a[idx] = 1 - (st > 1 ? 1 : st);
                 }
+
+                if (m[idx] & TMASK.S_WALL ) { break; }                
                 if (m[idx] & TMASK.WALL && haw > 1) { break; }          
                 if (m[idx] & TMASK.WALL) { haw++; }          
                 if (!m[idx]) { break; }

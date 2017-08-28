@@ -8,21 +8,12 @@
 abstract class GameState {
     /**
      * Creates an instance of GameState.
-     * @param {Game} g 
      * @memberof GameState
      */
-    constructor(g: Game) {
-        this.g = g;
+    constructor() {
         this.redraw = true;
         this.requestingClear = false;
     }
-
-    /**
-     * @protected
-     * @type {Game}
-     * @memberof GameState
-     */
-    public g: Game;
 
     /**
      * @type {boolean}

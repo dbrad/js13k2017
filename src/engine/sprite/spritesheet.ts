@@ -54,11 +54,11 @@ class SpriteSheet {
         for (let y = 0; y < this.spritesPerCol; y++) {
             for (let x = 0; x < this.spritesPerRow; x++) {
                 sprite = this.sprites[x + (y * this.spritesPerRow)] = document.createElement("canvas");
-                (<Context2D>sprite.getContext("2d")).mozImageSmoothingEnabled = false;
-                (<Context2D>sprite.getContext("2d")).imageSmoothingEnabled = false;
+                let ctx = <Context2D>sprite.getContext("2d");
+                ctx.mozImageSmoothingEnabled = ctx.webkitImageSmoothingEnabled = ctx.imageSmoothingEnabled = false;
                 sprite.width = this.tileSize;
                 sprite.height = this.tileSize;
-                sprite.getContext("2d").drawImage(this.image,
+                ctx.drawImage(this.image,
                     ((this.tileSize + this.gutter) * x) + this.offset.x,
                     ((this.tileSize + this.gutter) * y) + this.offset.y,
                     this.tileSize, this.tileSize, 0, 0, this.tileSize, this.tileSize);

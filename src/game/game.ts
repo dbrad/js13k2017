@@ -8,23 +8,27 @@ class Game {
      * @memberof Game
      */
     private _c: HTMLCanvasElement;
+
     /**
      * @private
      * @type {Window}
      * @memberof Game
      */
     private _w: Window;
+
     /**
      * @private
      * @type {AudioContext}
      * @memberof Game
      */
     private _ac: AudioContext;
+
     /**
      * @type {Engine}
      * @memberof Game
      */
     public e: Engine
+
     /**
      * @type {AudioEngine}
      * @memberof Game
@@ -32,28 +36,72 @@ class Game {
     public ae: AudioEngine;
 
     /**
-     * Creates an instance of Game.
-     * @param {Window} window 
-     * @param {HTMLCanvasElement} canvas 
-     * @param {AudioContext} audioContext 
+     * @private
+     * @static
+     * @type {Game}
      * @memberof Game
      */
-    constructor(window: Window, canvas: HTMLCanvasElement, audioContext: AudioContext) {
-        this._c = canvas;
-        this._w = window;
-        this._ac = audioContext;
-        ImageCache.Loader.add("sheet", "./sheet.png");
-        ImageCache.Loader.load(this.init.bind(this))
+    private static _i: Game;
+
+    /**
+     * @readonly
+     * @static
+     * @type {Game}
+     * @memberof Game
+     */
+    public static get i(): Game {
+        if (!Game._i) {
+            Game._i = new Game();
+        }
+        return Game._i;
     }
+
+    /**
+     * @private
+     * @type {GameData}
+     * @memberof Game
+     */
+    private _gc: GameData;
+
+    /**
+     * @readonly
+     * @static
+     * @type {GameData}
+     * @memberof Game
+     */
+    public static get gd(): GameData {
+        if (!Game.i._gc) {
+            Game.i._gc = new GameData();
+        }
+        return Game.i._gc;
+    }
+    /**
+     * Creates an instance of Game.
+     * @private
+     * @memberof Game
+     */
+    private constructor() { }
 
     /**
      * @memberof Game
      */
-    init(): void {
+    init(window: Window, canvas: HTMLCanvasElement, audioContext: AudioContext): void {
+        this._c = canvas;
+        this._w = window;
+        this._ac = audioContext;
+        ImageCache.Loader.add("sheet", "./sheet.png");
+        ImageCache.Loader.load(this.done.bind(this));
+    }
+
+    /**
+     * @private
+     * @memberof Game
+     */
+    private done(): void {
         this.e = new Engine(this._c);
         this.bindings();
-        this.e.gsm.reg('main-menu', new MainMenu(this));
-        this.e.gsm.reg('game-screen', new GameScreen(this));
+        this.e.gsm.reg('main-menu', new MainMenu());
+        this.e.gsm.reg('game-screen', new GameScreen());
         this.e.gsm.push('main-menu');
         this.e.run();
     }
@@ -70,7 +118,9 @@ class Game {
         this._w.onblur = this.e.pause.bind(this.e);
         this._w.onfocus = this.e.unpause.bind(this.e);
         this.ae = new AudioEngine(this._ac);
-        SSM.storeSheet(new SpriteSheet('sheet', 'tiles', 8, 0, new Dm(5, 1), new Pt(40, 0)));
+        SSM.storeSheet(new SpriteSheet('sheet', 'marker', 8, 0, new Dm(2, 1), new Pt(8, 0)));
+        SSM.storeSheet(new SpriteSheet('sheet', 'floor', 8, 0, new Dm(3, 1), new Pt(8 * 3, 0)));
+        SSM.storeSheet(new SpriteSheet('sheet', 'wall', 8, 0, new Dm(4, 1), new Pt(8 * 6, 0)));
         SSM.storeSheet(new SpriteSheet('sheet', 'sprites', 8, 0, new Dm(5, 1)));
     }
 

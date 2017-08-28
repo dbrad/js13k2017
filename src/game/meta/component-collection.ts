@@ -31,6 +31,7 @@ class cStyle extends Component<string> {
 }
 
 class cSprite extends Component<HTMLCanvasElement> {
+	r: number = 0;
 	constructor(sprite: HTMLCanvasElement) {
 		super('sprite');
 		this.value = sprite;

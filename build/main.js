@@ -104,18 +104,30 @@ var Input;
     })(KB = Input.KB || (Input.KB = {}));
 })(Input || (Input = {}));
 var Game = (function () {
-    function Game(window, canvas, audioContext) {
+    function Game() {
+    }
+    Object.defineProperty(Game, "i", {
+        get: function () {
+            if (!Game._i) {
+                Game._i = new Game();
+            }
+            return Game._i;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Game.prototype.init = function (window, canvas, audioContext) {
         this._c = canvas;
         this._w = window;
         this._ac = audioContext;
         ImageCache.Loader.add("sheet", "./sheet.png");
-        ImageCache.Loader.load(this.init.bind(this));
-    }
-    Game.prototype.init = function () {
+        ImageCache.Loader.load(this.done.bind(this));
+    };
+    Game.prototype.done = function () {
         this.e = new Engine(this._c);
         this.bindings();
-        this.e.gsm.reg('main-menu', new MainMenu(this));
-        this.e.gsm.reg('game-screen', new GameScreen(this));
+        this.e.gsm.reg('main-menu', new MainMenu());
+        this.e.gsm.reg('game-screen', new GameScreen());
         this.e.gsm.push('main-menu');
         this.e.run();
     };
@@ -127,7 +139,9 @@ var Game = (function () {
         this._w.onblur = this.e.pause.bind(this.e);
         this._w.onfocus = this.e.unpause.bind(this.e);
         this.ae = new AudioEngine(this._ac);
-        SSM.storeSheet(new SpriteSheet('sheet', 'tiles', 8, 0, new Dm(5, 1), new Pt(40, 0)));
+        SSM.storeSheet(new SpriteSheet('sheet', 'marker', 8, 0, new Dm(2, 1), new Pt(8, 0)));
+        SSM.storeSheet(new SpriteSheet('sheet', 'floor', 8, 0, new Dm(3, 1), new Pt(8 * 3, 0)));
+        SSM.storeSheet(new SpriteSheet('sheet', 'wall', 8, 0, new Dm(4, 1), new Pt(8 * 6, 0)));
         SSM.storeSheet(new SpriteSheet('sheet', 'sprites', 8, 0, new Dm(5, 1)));
     };
     Game.prototype.onResize = function () {
@@ -152,8 +166,7 @@ var Game = (function () {
     Game.T_S = 8;
 })(Game || (Game = {}));
 var GameState = (function () {
-    function GameState(g) {
-        this.g = g;
+    function GameState() {
         this.redraw = true;
         this.requestingClear = false;
     }
@@ -225,7 +238,14 @@ var Engine = (function () {
             this.clearScreen = this.gsm.cur.requestingClear = false;
         }
         if (!this.systemPause && (this.redraw || this.gsm.cur.redraw)) {
+            this.bufferCtx.mozImageSmoothingEnabled = false;
+            this.bufferCtx.imageSmoothingEnabled = false;
+            this.bufferCtx.webkitImageSmoothingEnabled = false;
             this.gsm.cur.draw(this.bufferCtx);
+            this.ctx.globalAlpha = 1.0;
+            this.ctx.mozImageSmoothingEnabled = false;
+            this.ctx.imageSmoothingEnabled = false;
+            this.ctx.webkitImageSmoothingEnabled = false;
             this.ctx.drawImage(this.buffer, 0, 0, Game.P_W, Game.P_H, 0, 0, Game.P_W, Game.P_H);
             this.redraw = this.gsm.cur.redraw = false;
         }
@@ -406,11 +426,11 @@ var SpriteSheet = (function () {
         for (var y = 0; y < this.spritesPerCol; y++) {
             for (var x = 0; x < this.spritesPerRow; x++) {
                 sprite = this.sprites[x + (y * this.spritesPerRow)] = document.createElement("canvas");
-                sprite.getContext("2d").mozImageSmoothingEnabled = false;
-                sprite.getContext("2d").imageSmoothingEnabled = false;
+                var ctx = sprite.getContext("2d");
+                ctx.mozImageSmoothingEnabled = ctx.webkitImageSmoothingEnabled = ctx.imageSmoothingEnabled = false;
                 sprite.width = this.tileSize;
                 sprite.height = this.tileSize;
-                sprite.getContext("2d").drawImage(this.image, ((this.tileSize + this.gutter) * x) + this.offset.x, ((this.tileSize + this.gutter) * y) + this.offset.y, this.tileSize, this.tileSize, 0, 0, this.tileSize, this.tileSize);
+                ctx.drawImage(this.image, ((this.tileSize + this.gutter) * x) + this.offset.x, ((this.tileSize + this.gutter) * y) + this.offset.y, this.tileSize, this.tileSize, 0, 0, this.tileSize, this.tileSize);
             }
         }
     };
@@ -478,6 +498,7 @@ var cSprite = (function (_super) {
     __extends(cSprite, _super);
     function cSprite(sprite) {
         var _this = _super.call(this, 'sprite') || this;
+        _this.r = 0;
         _this.value = sprite;
         return _this;
     }
@@ -529,6 +550,31 @@ var cTimer = (function (_super) {
     }
     return cTimer;
 }(Component));
+function createPlayer() {
+    var p = new GameEntity();
+    p.addComponent(new cP('pos'));
+    p.addComponent(new cP('move'));
+    p.addComponent(new cSound('move', new Beep(50, 5, 'sine', .25, 1)));
+    p.addComponent(new cTimer('move', 150));
+    p.addComponent(new cLight(new Light(new Pt(), 0.85)));
+    p.addComponent(new cAABB(new Dm(1, 1)));
+    p.addComponent(new cFlag('input', true));
+    p.addComponent(new cSprite(SSM.spriteSheet("sprites").sprites[0]));
+    return p;
+}
+function createMarker() {
+    var p = new GameEntity();
+    p.addComponent(new cP('pos'));
+    p.addComponent(new cSprite(SSM.spriteSheet("marker").sprites[0]));
+    return p;
+}
+function createSwitch() {
+    var p = new GameEntity();
+    p.addComponent(new cP('pos'));
+    p.addComponent(new cFlag('state', false));
+    p.addComponent(new cSprite(SSM.spriteSheet("sprites").sprites[0]));
+    return p;
+}
 var TMASK;
 (function (TMASK) {
     TMASK.D = 1;
@@ -537,9 +583,10 @@ var TMASK;
     TMASK.O = 8;
     TMASK.WALL = 16;
     TMASK.FLOOR = 32;
+    TMASK.S_WALL = 64;
 })(TMASK || (TMASK = {}));
 var Level = (function () {
-    function Level(s, parent) {
+    function Level(s) {
         if (s === void 0) { s = new Dm(50, 50); }
         this.e = [];
         this.o = [];
@@ -551,14 +598,19 @@ var Level = (function () {
         this.rc = document.createElement("canvas");
         this.rc.width = (s.w * Game.T_S);
         this.rc.height = (s.h * Game.T_S);
-        this.rc.getContext("2d").mozImageSmoothingEnabled = false;
-        this.rc.getContext("2d").imageSmoothingEnabled = false;
-        this.parent = parent;
+        this.ctx = this.rc.getContext("2d");
+        this.ctx.mozImageSmoothingEnabled = false;
+        this.ctx.webkitImageSmoothingEnabled = false;
+        this.ctx.imageSmoothingEnabled = false;
         this.generate();
     }
     Level.prototype.addEntity = function (entity, pos) {
         entity.components["p-pos"].value = pos;
         this.e.push(entity);
+    };
+    Level.prototype.addObject = function (entity, pos) {
+        entity.components["p-pos"].value = pos;
+        this.o.push(entity);
     };
     Level.prototype.calcOrigin = function (r, d) {
         var N = d.w === WALL.N, S = d.w === WALL.S, E = d.w === WALL.E, W = d.w === WALL.W;
@@ -575,8 +627,8 @@ var Level = (function () {
     Level.prototype.addDoor = function (r, d) {
         this.m[d.p.x + (d.p.y * this.s.h)] = TMASK.FLOOR | TMASK.W;
         if (d.w === WALL.N || d.w === WALL.S) {
-            this.m[(d.p.x - 1) + (d.p.y * this.s.h)] = TMASK.WALL;
-            this.m[(d.p.x + 1) + (d.p.y * this.s.h)] = TMASK.WALL;
+            this.m[(d.p.x - 1) + (d.p.y * this.s.h)] = TMASK.WALL | TMASK.S_WALL;
+            this.m[(d.p.x + 1) + (d.p.y * this.s.h)] = TMASK.WALL | TMASK.S_WALL;
             this.m[d.p.x + ((d.p.y - 1) * this.s.h)] = TMASK.FLOOR | TMASK.W;
             this.m[d.p.x + ((d.p.y + 1) * this.s.h)] = TMASK.FLOOR | TMASK.W;
         }
@@ -584,7 +636,9 @@ var Level = (function () {
             this.m[(d.p.x - 1) + (d.p.y * this.s.h)] = TMASK.FLOOR | TMASK.W;
             this.m[(d.p.x + 1) + (d.p.y * this.s.h)] = TMASK.FLOOR | TMASK.W;
             this.m[d.p.x + ((d.p.y - 1) * this.s.h)] = TMASK.WALL;
-            this.m[d.p.x + ((d.p.y + 1) * this.s.h)] = TMASK.WALL;
+            this.m[d.p.x - 1 + ((d.p.y - 1) * this.s.h)] = TMASK.WALL;
+            this.m[d.p.x + 1 + ((d.p.y - 1) * this.s.h)] = TMASK.WALL;
+            this.m[d.p.x + ((d.p.y + 1) * this.s.h)] = TMASK.WALL | TMASK.S_WALL;
         }
     };
     Level.prototype.scan = function (r, d) {
@@ -608,8 +662,11 @@ var Level = (function () {
         r.p.y = o.y;
         for (var mx = o.x, rx = 0; rx < r.s.w; rx++) {
             for (var my = o.y, ry = 0; ry < r.s.h; ry++) {
-                if (rx === 0 || ry === 0 || rx === r.s.w - 1 || ry === r.s.h - 1)
+                if (ry === 0 && rx !== 0 && rx !== r.s.w - 1) {
                     this.m[mx + (my * this.s.h)] = TMASK.WALL;
+                }
+                else if (rx === 0 || ry === 0 || rx === r.s.w - 1 || ry === r.s.h - 1)
+                    this.m[mx + (my * this.s.h)] = TMASK.WALL | TMASK.S_WALL;
                 else
                     this.m[mx + (my * this.s.h)] = TMASK.FLOOR | TMASK.W;
                 my++;
@@ -668,22 +725,32 @@ var Level = (function () {
         var lights = [];
         for (var e in this.e) {
             var ent = this.e[e].components;
-            if (ent['input'] && ent['input'].value) {
-                input(this.e[e]);
-            }
-            if (ent['aabb']) {
-                collision(this.e[e], this);
-            }
-            if (ent['p-move']) {
-                if (ent['t-move']) {
-                    ent['t-move'].cur += delta;
-                    this.d = this.d || movement(this.e[e]);
-                    if (this.d) {
-                        var p = ent['p-pos'].value;
-                        c.p.x = p.x - ~~(c.s.w / 2);
-                        c.p.y = p.y - ~~(c.s.h / 2);
-                        if (ent['s-move']) {
-                            this.parent.g.ae.beep(ent['s-move'].value);
+            if (ent['t-move']) {
+                var tm = ent['t-move'];
+                tm.cur += delta;
+                if (tm.cur >= tm.value) {
+                    if (ent['input'] && ent['p-move'] && ent['input'].value) {
+                        input(this.e[e]);
+                        if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
+                            this.d = true;
+                            var p = ent['p-pos'].value;
+                            this.addObject(createMarker(), new Pt(p.x, p.y));
+                        }
+                    }
+                    if (ent['aabb'] && ent['p-move'] && ent['p-pos']) {
+                        this.d = this.d || collision(this.e[e], this);
+                    }
+                    if (ent['p-move']) {
+                        if (ent['t-move']) {
+                            if (movement(this.e[e])) {
+                                this.d = true;
+                                var p = ent['p-pos'].value;
+                                c.p.x = p.x - ~~(c.s.w / 2);
+                                c.p.y = p.y - ~~(c.s.h / 2);
+                                if (ent['s-move']) {
+                                    Game.i.ae.beep(ent['s-move'].value);
+                                }
+                            }
                         }
                     }
                 }
@@ -702,6 +769,8 @@ var Level = (function () {
     };
     Level.prototype.render = function (ctx) {
         var _this = this;
+        var tn = randomized([0, 1, 1, 2]);
+        var fn = randomized([0, 0, 0, 0, 0, 0, 1, 2]);
         this.m.forEach(function (t, i) {
             var ty = ~~(i / _this.s.w);
             var tx = i % _this.s.w;
@@ -711,10 +780,15 @@ var Level = (function () {
                 ctx.fillRect(tx * Game.T_S, ty * Game.T_S, Game.T_S, Game.T_S);
             }
             else if (t & TMASK.WALL) {
-                tile = SSM.spriteSheet("tiles").sprites[1];
+                if (t & TMASK.S_WALL) {
+                    tile = SSM.spriteSheet("wall").sprites[3];
+                }
+                else {
+                    tile = SSM.spriteSheet("wall").sprites[tn()];
+                }
             }
             else if (t & TMASK.FLOOR) {
-                tile = SSM.spriteSheet("tiles").sprites[0];
+                tile = SSM.spriteSheet("floor").sprites[fn()];
             }
             if (tile) {
                 ctx.drawImage(tile, 0, 0, Game.T_S, Game.T_S, ~~(tx * Game.T_S), ~~(ty * Game.T_S), Game.T_S, Game.T_S);
@@ -723,7 +797,7 @@ var Level = (function () {
     };
     Level.prototype.draw = function (ctx, c) {
         if (this.r) {
-            this.render(this.rc.getContext("2d"));
+            this.render(this.ctx);
             this.r = false;
         }
         if (c.z) {
@@ -735,16 +809,34 @@ var Level = (function () {
             });
         }
         else {
-            ctx.drawImage(this.rc, ~~(c.p.x * Game.T_S), ~~(c.p.y * Game.T_S), ~~(c.s.w * Game.T_S), ~~(c.s.h * Game.T_S), 0, 0, ~~((Game.T_W - 12) * Game.T_S), ~~((Game.T_H - 8) * Game.T_S));
-            this.e.forEach(function (e, i) {
-                var s = e.components['sprite'].value;
+            ctx.globalAlpha = 1;
+            ctx.drawImage(this.rc, ~~(c.p.x * Game.T_S), ~~(c.p.y * Game.T_S), ~~(c.s.w * Game.T_S), ~~(c.s.h * Game.T_S), 0, 0, ~~((c.s.w) * Game.T_S * 2), ~~((c.s.h) * Game.T_S * 2));
+            this.o.forEach(function (e, i) {
+                var sp = e.components['sprite'];
+                var s = sp.value;
                 var p = e.components['p-pos'].value;
                 if (p.x > 0 && p.x < (c.p.x + c.s.w) && p.y > 0 && p.y < (c.p.y + c.s.h)) {
-                    ctx.drawImage(s, 0, 0, Game.T_S, Game.T_S, ~~((p.x - c.p.x) * Game.T_S * 2), ~~((p.y - c.p.y) * Game.T_S * 2), Game.T_S * 2, Game.T_S * 2);
+                    ctx.save();
+                    ctx.translate(~~((p.x - c.p.x) * Game.T_S * 2) + Game.T_S, ~~((p.y - c.p.y) * Game.T_S * 2) + Game.T_S);
+                    ctx.rotate(sp.r * Math.PI / 180);
+                    ctx.drawImage(s, 0, 0, Game.T_S, Game.T_S, -Game.T_S, -Game.T_S, Game.T_S * 2, Game.T_S * 2);
+                    ctx.restore();
+                }
+            });
+            this.e.forEach(function (e, i) {
+                var sp = e.components['sprite'];
+                var s = sp.value;
+                var p = e.components['p-pos'].value;
+                if (p.x > 0 && p.x < (c.p.x + c.s.w) && p.y > 0 && p.y < (c.p.y + c.s.h)) {
+                    ctx.save();
+                    ctx.translate(~~((p.x - c.p.x) * Game.T_S * 2) + Game.T_S, ~~((p.y - c.p.y) * Game.T_S * 2) + Game.T_S);
+                    ctx.rotate(sp.r * Math.PI / 180);
+                    ctx.drawImage(s, 0, 0, Game.T_S, Game.T_S, -Game.T_S, -Game.T_S, Game.T_S * 2, Game.T_S * 2);
+                    ctx.restore();
                 }
             });
             if (this.lm.length > 0) {
-                ctx.fillStyle = "black";
+                ctx.fillStyle = "#0d0d0d";
                 for (var x = c.p.x, rx = 0; x < c.p.x + c.s.w; x++) {
                     for (var y = c.p.y, ry = 0; y < c.p.y + c.s.h; y++) {
                         var val = this.lm[x + (y * this.s.h)];
@@ -764,7 +856,7 @@ var Light = (function () {
     function Light(p, i) {
         this.p = p;
         this.i = i;
-        this.r = 7;
+        this.r = 8;
     }
     Light.prototype.calc = function (m, s) {
         this.a = [];
@@ -785,6 +877,9 @@ var Light = (function () {
                 }
                 if (!(idx in this.a) || this.a[idx] > st) {
                     this.a[idx] = 1 - (st > 1 ? 1 : st);
+                }
+                if (m[idx] & TMASK.S_WALL) {
+                    break;
                 }
                 if (m[idx] & TMASK.WALL && haw > 1) {
                     break;
@@ -921,27 +1016,59 @@ var Room = (function () {
 }());
 function input(e) {
     var m = e.components['p-move'].value;
+    m.x = m.y = 0;
     if (Input.KB.isBindDown(Input.KB.META_KEY.UP)) {
-        m.y = -1;
+        m.y -= 1;
     }
     if (Input.KB.isBindDown(Input.KB.META_KEY.DOWN)) {
-        m.y = 1;
+        m.y += 1;
     }
     if (Input.KB.isBindDown(Input.KB.META_KEY.LEFT)) {
-        m.x = -1;
+        m.x -= 1;
     }
     if (Input.KB.isBindDown(Input.KB.META_KEY.RIGHT)) {
-        m.x = 1;
+        m.x += 1;
     }
+}
+function collision(e, l) {
+    var ec = e.components;
+    var p = ec['p-pos'].value;
+    var m = ec['p-move'].value;
+    var t = new Pt(m.x, m.y);
+    var r = false;
+    if (l.m[p.x + m.x + ((p.y + m.y) * l.s.w)] & TMASK.WALL) {
+        m.x = m.y = 0;
+        r = true;
+    }
+    if (t.x !== 0 && l.m[p.x + t.x + (p.y * l.s.w)] & TMASK.FLOOR) {
+        m.x = t.x;
+        r = false;
+    }
+    else if (t.y !== 0 && l.m[p.x + ((p.y + t.y) * l.s.w)] & TMASK.FLOOR) {
+        m.y = t.y;
+        r = false;
+    }
+    return r;
 }
 function movement(e) {
     var ec = e.components;
+    var s = ec['sprite'];
     var t = ec['t-move'];
-    if (t.cur >= t.value) {
-        t.cur = 0;
-        var p = ec['p-pos'];
-        var m = ec['p-move'].value;
-        if (m.x !== 0 || m.y !== 0) {
+    var p = ec['p-pos'];
+    var m = ec['p-move'].value;
+    if (m.x !== 0 || m.y !== 0) {
+        if (t.cur >= t.value) {
+            t.cur = 0;
+            if (m.x === 1)
+                s.r += 90;
+            if (m.x === -1)
+                s.r -= 90;
+            if ((m.y === -1 || m.y === 1) && s.r % 180 !== 0)
+                s.r = 0;
+            if ((m.y === -1 || m.y === 1) && s.r % 180 === 0)
+                s.r += 180;
+            if (Math.abs(s.r % 360) === 1)
+                s.r = 0;
             p.value.x += m.x;
             p.value.y += m.y;
             m.x = m.y = 0;
@@ -950,49 +1077,39 @@ function movement(e) {
     }
     return false;
 }
-function collision(e, l) {
-}
 function randomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
+function randomized(s) {
+    var seq = s;
+    var stack = shuffle(seq);
+    return function () {
+        if (stack.length === 0)
+            stack = shuffle(seq);
+        return stack.pop();
+    };
+}
 function shuffle(array) {
     var currentIndex = array.length, temporaryValue, randomIndex;
+    var arr = array.slice();
     while (0 !== currentIndex) {
         randomIndex = Math.floor(Math.random() * currentIndex);
         currentIndex -= 1;
-        temporaryValue = array[currentIndex];
-        array[currentIndex] = array[randomIndex];
-        array[randomIndex] = temporaryValue;
+        temporaryValue = arr[currentIndex];
+        arr[currentIndex] = arr[randomIndex];
+        arr[randomIndex] = temporaryValue;
     }
-    return array;
+    return arr;
 }
 var GameScreen = (function (_super) {
     __extends(GameScreen, _super);
-    function GameScreen(game) {
-        var _this = _super.call(this, game) || this;
-        _this.c = new Camera(new Pt(), new Dm(26, 14));
-        _this.level = new Level(new Dm(250, 250), _this);
+    function GameScreen() {
+        var _this = _super.call(this) || this;
+        _this.c = new Camera(new Pt(), new Dm(32, 14));
+        _this.level = new Level(new Dm(250, 250));
         {
-            var p = new GameEntity();
-            p.addComponent(new cP('pos'));
-            p.addComponent(new cP('move'));
-            p.addComponent(new cSound('move', new Beep(50, 5, 'sine', .25, 1)));
-            p.addComponent(new cTimer('move', 150));
-            p.addComponent(new cLight(new Light(new Pt(), 0.75)));
-            p.addComponent(new cAABB(new Dm(1, 1)));
-            p.addComponent(new cFlag('player', true));
-            p.addComponent(new cFlag('input', true));
-            p.addComponent(new cSprite(SSM.spriteSheet("sprites").sprites[2]));
+            var p = createPlayer();
             _this.level.addEntity(p, new Pt(10, 10));
-        }
-        {
-            var p = new GameEntity();
-            p.addComponent(new cP('pos'));
-            p.addComponent(new cLight(new Light(new Pt(), 0.75)));
-            p.addComponent(new cAABB(new Dm(1, 1)));
-            p.addComponent(new cFlag('player', true));
-            p.addComponent(new cSprite(SSM.spriteSheet("sprites").sprites[2]));
-            _this.level.addEntity(p, new Pt(20, 20));
         }
         return _this;
     }
@@ -1005,12 +1122,12 @@ var GameScreen = (function (_super) {
     };
     GameScreen.prototype.update = function (delta) {
         this.level.update(delta, this.c);
-        if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
-            this.g.e.gsm.pop();
-        }
         if (Input.KB.wasDown(Input.KB.KEY.C)) {
             this.c.z = !this.c.z;
             this.redraw = true;
+        }
+        if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
+            Game.i.e.gsm.push('MarkerMenu');
         }
         if (this.level.d) {
             this.redraw = true;
@@ -1027,8 +1144,8 @@ var GameScreen = (function (_super) {
 }(GameState));
 var MainMenu = (function (_super) {
     __extends(MainMenu, _super);
-    function MainMenu(game) {
-        var _this = _super.call(this, game) || this;
+    function MainMenu() {
+        var _this = _super.call(this) || this;
         _this.selectedIndex = 0;
         _this.menuOptions = ["Start", "Options", "Exit"];
         return _this;
@@ -1045,7 +1162,7 @@ var MainMenu = (function (_super) {
         if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
             switch (this.selectedIndex) {
                 case 0:
-                    this.g.e.gsm.push('game-screen');
+                    Game.i.e.gsm.push('game-screen');
                     break;
                 case 1:
                     break;
