@@ -2,11 +2,13 @@ function randomInt(min: number, max: number): number {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function randomized(s: number[]): Function {
+function randomized(s: number[], r: boolean = true): Function {
     let seq: number[] = s;
+    let repeat = r;
     let stack: number[] = shuffle(seq);
-    return function() {
-        if(stack.length === 0) stack = shuffle(seq);
+    return function (): number {
+        if (stack.length === 0 && repeat) stack = shuffle(seq);
+        else if (stack.length === 0 && !repeat) return undefined;
         return stack.pop();
     }
 }

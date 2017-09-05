@@ -30,6 +30,7 @@ var Input;
             KEY[KEY["NUM_4"] = 52] = "NUM_4";
             KEY[KEY["NUM_5"] = 53] = "NUM_5";
             KEY[KEY["C"] = 67] = "C";
+            KEY[KEY["ESC"] = 27] = "ESC";
         })(KEY = KB.KEY || (KB.KEY = {}));
         var META_KEY;
         (function (META_KEY) {
@@ -116,6 +117,16 @@ var Game = (function () {
         enumerable: true,
         configurable: true
     });
+    Object.defineProperty(Game, "gd", {
+        get: function () {
+            if (!Game.i._gc) {
+                Game.i._gc = new GameData();
+            }
+            return Game.i._gc;
+        },
+        enumerable: true,
+        configurable: true
+    });
     Game.prototype.init = function (window, canvas, audioContext) {
         this._c = canvas;
         this._w = window;
@@ -128,6 +139,7 @@ var Game = (function () {
         this.bindings();
         this.e.gsm.reg('main-menu', new MainMenu());
         this.e.gsm.reg('game-screen', new GameScreen());
+        this.e.gsm.reg('marker-menu', new MarkerMenu());
         this.e.gsm.push('main-menu');
         this.e.run();
     };
@@ -139,10 +151,12 @@ var Game = (function () {
         this._w.onblur = this.e.pause.bind(this.e);
         this._w.onfocus = this.e.unpause.bind(this.e);
         this.ae = new AudioEngine(this._ac);
+        SSM.storeSheet(new SpriteSheet('sheet', 'sprites', 8, 0, new Dm(5, 1)));
         SSM.storeSheet(new SpriteSheet('sheet', 'marker', 8, 0, new Dm(2, 1), new Pt(8, 0)));
         SSM.storeSheet(new SpriteSheet('sheet', 'floor', 8, 0, new Dm(3, 1), new Pt(8 * 3, 0)));
         SSM.storeSheet(new SpriteSheet('sheet', 'wall', 8, 0, new Dm(4, 1), new Pt(8 * 6, 0)));
-        SSM.storeSheet(new SpriteSheet('sheet', 'sprites', 8, 0, new Dm(5, 1)));
+        SSM.storeSheet(new SpriteSheet('sheet', 'guide', 8, 0, new Dm(3, 1), new Pt(0, 8)));
+        SSM.storeSheet(new SpriteSheet('sheet', 'objects', 8, 0, new Dm(3, 1), new Pt(8 * 3, 8)));
     };
     Game.prototype.onResize = function () {
         var scaleX = window.innerWidth / this._c.width;
@@ -238,6 +252,7 @@ var Engine = (function () {
             this.clearScreen = this.gsm.cur.requestingClear = false;
         }
         if (!this.systemPause && (this.redraw || this.gsm.cur.redraw)) {
+            this.bufferCtx.globalAlpha = 1.0;
             this.bufferCtx.mozImageSmoothingEnabled = false;
             this.bufferCtx.imageSmoothingEnabled = false;
             this.bufferCtx.webkitImageSmoothingEnabled = false;
@@ -373,8 +388,11 @@ var Pt = (function () {
         this.x = x;
         this.y = y;
     }
-    Pt.from = function (x, y) {
-        return new Pt(x, y);
+    Pt.from = function (p) {
+        var _p = new Pt();
+        _p.x = p.x;
+        _p.y = p.y;
+        return _p;
     };
     return Pt;
 }());
@@ -562,19 +580,131 @@ function createPlayer() {
     p.addComponent(new cSprite(SSM.spriteSheet("sprites").sprites[0]));
     return p;
 }
-function createMarker() {
+function createMarker(t, r) {
+    if (r === void 0) { r = 0; }
     var p = new GameEntity();
     p.addComponent(new cP('pos'));
-    p.addComponent(new cSprite(SSM.spriteSheet("marker").sprites[0]));
+    var s = new cSprite(SSM.spriteSheet("marker").sprites[t]);
+    s.r = r;
+    p.addComponent(s);
     return p;
 }
 function createSwitch() {
     var p = new GameEntity();
     p.addComponent(new cP('pos'));
     p.addComponent(new cFlag('state', false));
-    p.addComponent(new cSprite(SSM.spriteSheet("sprites").sprites[0]));
+    p.addComponent(new cSprite(SSM.spriteSheet("guide").sprites[1]));
     return p;
 }
+function createObject(s) {
+    var p = new GameEntity();
+    p.addComponent(new cP('pos'));
+    p.addComponent(new cAABB(new Dm(1, 1)));
+    p.addComponent(new cSprite(SSM.spriteSheet("objects").sprites[s]));
+    return p;
+}
+var GameData = (function () {
+    function GameData() {
+        this.e = [];
+        this.m = [];
+        this.o = [];
+        this.lm = [];
+    }
+    GameData.prototype.buildObjBank = function (p, g) {
+        var seq = [0];
+        for (var i = 0; i < p; i++) {
+            seq.push(1);
+        }
+        for (var i = 0; i < g; i++) {
+            seq.push(2);
+        }
+        for (var i = 0; i < 50; i++) {
+            seq.push(3);
+        }
+        for (var i = 0; i < 25; i++) {
+            seq.push(4);
+        }
+        this.objectBank = randomized(seq, false);
+    };
+    GameData.prototype.addRandObj = function (o, s) {
+        var obj = parseInt(this.objectBank());
+        var p = new Pt(randomInt(o.x + 1, o.x + s.w - 2), randomInt(o.y + 1, o.y + s.h - 2));
+        if (obj !== undefined) {
+            switch (obj) {
+                case 0:
+                    this.addObject(createObject(0), p);
+                    break;
+                case 1:
+                    break;
+                case 2:
+                    this.addObject(createSwitch(), p);
+                    break;
+                case 3:
+                    this.addObject(createObject(1), p);
+                    break;
+                case 4:
+                    this.addObject(createObject(2), p);
+                    break;
+                default:
+                    this.addObject(createObject(2), p);
+                    break;
+            }
+        }
+        else {
+            this.addObject(createObject(2), p);
+        }
+    };
+    GameData.prototype.addEntity = function (entity, pos) {
+        entity.components["p-pos"].value = pos;
+        Game.gd.e.push(entity);
+    };
+    GameData.prototype.addObject = function (entity, pos) {
+        entity.components["p-pos"].value = pos;
+        Game.gd.o.push(entity);
+    };
+    GameData.prototype.getCurrPlayer = function () {
+        for (var i in this.e) {
+            if (this.e[i].components['input'] && this.e[i].components['input'].value) {
+                return this.e[i];
+            }
+        }
+        return undefined;
+    };
+    GameData.prototype.getEntAt = function (p) {
+        var _p;
+        for (var i in this.e) {
+            if (this.e[i].components['p-pos']) {
+                _p = this.e[i].components['p-pos'].value;
+                if (_p.x === p.x && _p.y === p.y)
+                    return this.e[i];
+            }
+        }
+        return undefined;
+    };
+    GameData.prototype.getObjAt = function (p) {
+        var _p;
+        for (var i in this.o) {
+            if (this.o[i].components['p-pos']) {
+                _p = this.o[i].components['p-pos'].value;
+                if (_p.x === p.x && _p.y === p.y)
+                    return this.o[i];
+            }
+        }
+        return undefined;
+    };
+    GameData.prototype.getObjIndexAt = function (p) {
+        var _p;
+        for (var i in this.o) {
+            if (this.o[i].components['p-pos']) {
+                _p = this.o[i].components['p-pos'].value;
+                if (_p.x === p.x && _p.y === p.y)
+                    return parseInt(i);
+            }
+        }
+        return undefined;
+    };
+    return GameData;
+}());
 var TMASK;
 (function (TMASK) {
     TMASK.D = 1;
@@ -588,12 +718,8 @@ var TMASK;
 var Level = (function () {
     function Level(s) {
         if (s === void 0) { s = new Dm(50, 50); }
-        this.e = [];
-        this.o = [];
         this.m = [];
-        this.lm = [];
         this.r = true;
-        this.d = true;
         this.s = s;
         this.rc = document.createElement("canvas");
         this.rc.width = (s.w * Game.T_S);
@@ -604,14 +730,6 @@ var Level = (function () {
         this.ctx.imageSmoothingEnabled = false;
         this.generate();
     }
-    Level.prototype.addEntity = function (entity, pos) {
-        entity.components["p-pos"].value = pos;
-        this.e.push(entity);
-    };
-    Level.prototype.addObject = function (entity, pos) {
-        entity.components["p-pos"].value = pos;
-        this.o.push(entity);
-    };
     Level.prototype.calcOrigin = function (r, d) {
         var N = d.w === WALL.N, S = d.w === WALL.S, E = d.w === WALL.E, W = d.w === WALL.W;
         var x = d.p.x
@@ -665,10 +783,12 @@ var Level = (function () {
                 if (ry === 0 && rx !== 0 && rx !== r.s.w - 1) {
                     this.m[mx + (my * this.s.h)] = TMASK.WALL;
                 }
-                else if (rx === 0 || ry === 0 || rx === r.s.w - 1 || ry === r.s.h - 1)
+                else if (rx === 0 || ry === 0 || rx === r.s.w - 1 || ry === r.s.h - 1) {
                     this.m[mx + (my * this.s.h)] = TMASK.WALL | TMASK.S_WALL;
-                else
+                }
+                else {
                     this.m[mx + (my * this.s.h)] = TMASK.FLOOR | TMASK.W;
+                }
                 my++;
             }
             mx++;
@@ -687,6 +807,7 @@ var Level = (function () {
         roomOrigin = new Pt(randomInt(0, this.s.w - tRoom.s.w), randomInt(0, this.s.h - tRoom.s.h));
         placedRooms.push(tRoom);
         this.roomToMap(tRoom, roomOrigin);
+        Game.gd.addRandObj(roomOrigin, tRoom.s);
         while (placedRooms.length > 0) {
             while (lRoom.w.length > 0) {
                 tDW = lRoom.getRandomWall();
@@ -706,6 +827,7 @@ var Level = (function () {
                             roomOrigin = this.calcOrigin(tRoom, tDWC);
                             this.roomToMap(tRoom, roomOrigin);
                             this.addDoor(tRoom, tDWC);
+                            Game.gd.addRandObj(roomOrigin, tRoom.s);
                             placedRooms.push(tRoom);
                             lRoom = tRoom;
                         }
@@ -721,52 +843,7 @@ var Level = (function () {
             }
         }
     };
-    Level.prototype.update = function (delta, c) {
-        var lights = [];
-        for (var e in this.e) {
-            var ent = this.e[e].components;
-            if (ent['t-move']) {
-                var tm = ent['t-move'];
-                tm.cur += delta;
-                if (tm.cur >= tm.value) {
-                    if (ent['input'] && ent['p-move'] && ent['input'].value) {
-                        input(this.e[e]);
-                        if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
-                            this.d = true;
-                            var p = ent['p-pos'].value;
-                            this.addObject(createMarker(), new Pt(p.x, p.y));
-                        }
-                    }
-                    if (ent['aabb'] && ent['p-move'] && ent['p-pos']) {
-                        this.d = this.d || collision(this.e[e], this);
-                    }
-                    if (ent['p-move']) {
-                        if (ent['t-move']) {
-                            if (movement(this.e[e])) {
-                                this.d = true;
-                                var p = ent['p-pos'].value;
-                                c.p.x = p.x - ~~(c.s.w / 2);
-                                c.p.y = p.y - ~~(c.s.h / 2);
-                                if (ent['s-move']) {
-                                    Game.i.ae.beep(ent['s-move'].value);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            if (this.d) {
-                if (ent['light'] && ent['p-pos']) {
-                    var l = ent['light'].value;
-                    l.p = ent['p-pos'].value;
-                    l.calc(this.m, this.s);
-                    lights.push(l);
-                }
-            }
-        }
-        if (lights.length > 0)
-            this.lm = Light.reLM(lights, this.s);
-    };
+    Level.prototype.update = function (delta, c) { };
     Level.prototype.render = function (ctx) {
         var _this = this;
         var tn = randomized([0, 1, 1, 2]);
@@ -800,54 +877,12 @@ var Level = (function () {
             this.render(this.ctx);
             this.r = false;
         }
-        if (c.z) {
-            ctx.drawImage(this.rc, ~~(c.p.x * Game.T_S), ~~(c.p.y * Game.T_S), ~~(Game.T_W * Game.T_S), ~~(Game.T_H * Game.T_S), 0, 0, ~~(Game.T_W * Game.T_S), ~~(Game.T_H * Game.T_S));
-            this.e.forEach(function (e, i) {
-                var s = e.components['sprite'].value;
-                var p = e.components['p-pos'].value;
-                ctx.drawImage(s, 0, 0, Game.T_S, Game.T_S, ~~((p.x - c.p.x) * Game.T_S), ~~((p.y - c.p.y) * Game.T_S), Game.T_S, Game.T_S);
-            });
+        ctx.globalAlpha = 1;
+        if (Game.gd.DEBUG) {
+            ctx.drawImage(this.rc, ~~(c.p.x * Game.T_S), ~~(c.p.y * Game.T_S), ~~(c.s.w * Game.T_S), ~~(c.s.h * Game.T_S), 0, 0, ~~(Game.T_W * Game.T_S), ~~(Game.T_H * Game.T_S));
         }
         else {
-            ctx.globalAlpha = 1;
             ctx.drawImage(this.rc, ~~(c.p.x * Game.T_S), ~~(c.p.y * Game.T_S), ~~(c.s.w * Game.T_S), ~~(c.s.h * Game.T_S), 0, 0, ~~((c.s.w) * Game.T_S * 2), ~~((c.s.h) * Game.T_S * 2));
-            this.o.forEach(function (e, i) {
-                var sp = e.components['sprite'];
-                var s = sp.value;
-                var p = e.components['p-pos'].value;
-                if (p.x > 0 && p.x < (c.p.x + c.s.w) && p.y > 0 && p.y < (c.p.y + c.s.h)) {
-                    ctx.save();
-                    ctx.translate(~~((p.x - c.p.x) * Game.T_S * 2) + Game.T_S, ~~((p.y - c.p.y) * Game.T_S * 2) + Game.T_S);
-                    ctx.rotate(sp.r * Math.PI / 180);
-                    ctx.drawImage(s, 0, 0, Game.T_S, Game.T_S, -Game.T_S, -Game.T_S, Game.T_S * 2, Game.T_S * 2);
-                    ctx.restore();
-                }
-            });
-            this.e.forEach(function (e, i) {
-                var sp = e.components['sprite'];
-                var s = sp.value;
-                var p = e.components['p-pos'].value;
-                if (p.x > 0 && p.x < (c.p.x + c.s.w) && p.y > 0 && p.y < (c.p.y + c.s.h)) {
-                    ctx.save();
-                    ctx.translate(~~((p.x - c.p.x) * Game.T_S * 2) + Game.T_S, ~~((p.y - c.p.y) * Game.T_S * 2) + Game.T_S);
-                    ctx.rotate(sp.r * Math.PI / 180);
-                    ctx.drawImage(s, 0, 0, Game.T_S, Game.T_S, -Game.T_S, -Game.T_S, Game.T_S * 2, Game.T_S * 2);
-                    ctx.restore();
-                }
-            });
-            if (this.lm.length > 0) {
-                ctx.fillStyle = "#0d0d0d";
-                for (var x = c.p.x, rx = 0; x < c.p.x + c.s.w; x++) {
-                    for (var y = c.p.y, ry = 0; y < c.p.y + c.s.h; y++) {
-                        var val = this.lm[x + (y * this.s.h)];
-                        ctx.globalAlpha = (val ? val : 1);
-                        ctx.fillRect(rx * Game.T_S * 2, ry * Game.T_S * 2, Game.T_S * 2, Game.T_S * 2);
-                        ry++;
-                    }
-                    rx++;
-                }
-                ctx.globalAlpha = 1;
-            }
         }
     };
     return Level;
@@ -1061,11 +1096,11 @@ function movement(e) {
             t.cur = 0;
             if (m.x === 1)
                 s.r += 90;
-            if (m.x === -1)
+            else if (m.x === -1)
                 s.r -= 90;
-            if ((m.y === -1 || m.y === 1) && s.r % 180 !== 0)
+            else if ((m.y === -1 || m.y === 1) && s.r % 180 !== 0)
                 s.r = 0;
-            if ((m.y === -1 || m.y === 1) && s.r % 180 === 0)
+            else if ((m.y === -1 || m.y === 1) && s.r % 180 === 0)
                 s.r += 180;
             if (Math.abs(s.r % 360) === 1)
                 s.r = 0;
@@ -1077,15 +1112,40 @@ function movement(e) {
     }
     return false;
 }
+function drawEnt(ctx, e, c) {
+    var sp = e.components['sprite'];
+    var s = sp.value;
+    var p = e.components['p-pos'].value;
+    if (p.x > 0 && p.x < (c.p.x + c.s.w) && p.y > 0 && p.y < (c.p.y + c.s.h)) {
+        ctx.save();
+        ctx.translate(~~((p.x - c.p.x) * Game.T_S * 2) + Game.T_S, ~~((p.y - c.p.y) * Game.T_S * 2) + Game.T_S);
+        ctx.rotate(sp.r * Math.PI / 180);
+        ctx.drawImage(s, 0, 0, Game.T_S, Game.T_S, -Game.T_S, -Game.T_S, Game.T_S * 2, Game.T_S * 2);
+        ctx.restore();
+    }
+}
+function drawSpr(ctx, sp, p, s, r) {
+    if (s === void 0) { s = 1; }
+    if (r === void 0) { r = 0; }
+    ctx.save();
+    ctx.translate(~~(p.x * Game.T_S * s), ~~(p.y * Game.T_S * s));
+    ctx.rotate(r * Math.PI / 180);
+    ctx.drawImage(sp, 0, 0, Game.T_S, Game.T_S, -Game.T_S, -Game.T_S, Game.T_S * s, Game.T_S * s);
+    ctx.restore();
+}
 function randomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
-function randomized(s) {
+function randomized(s, r) {
+    if (r === void 0) { r = true; }
     var seq = s;
+    var repeat = r;
     var stack = shuffle(seq);
     return function () {
-        if (stack.length === 0)
+        if (stack.length === 0 && repeat)
             stack = shuffle(seq);
+        else if (stack.length === 0 && !repeat)
+            return undefined;
         return stack.pop();
     };
 }
@@ -1106,11 +1166,16 @@ var GameScreen = (function (_super) {
     function GameScreen() {
         var _this = _super.call(this) || this;
         _this.c = new Camera(new Pt(), new Dm(32, 14));
-        _this.level = new Level(new Dm(250, 250));
+        Game.gd.buildObjBank(4, 8);
+        Game.gd.l = new Level(new Dm(250, 250));
+        console.log(Game.gd);
         {
-            var p = createPlayer();
-            _this.level.addEntity(p, new Pt(10, 10));
+            var p_1 = createPlayer();
+            Game.gd.addEntity(p_1, new Pt(10, 10));
         }
+        var p = Pt.from(Game.gd.getCurrPlayer().components['p-pos'].value);
+        _this.c.p.x = p.x - ~~(_this.c.s.w / 2);
+        _this.c.p.y = p.y - ~~(_this.c.s.h / 2);
         return _this;
     }
     GameScreen.prototype.transitionIn = function () {
@@ -1121,23 +1186,102 @@ var GameScreen = (function (_super) {
         _super.prototype.transitionOut.call(this);
     };
     GameScreen.prototype.update = function (delta) {
-        this.level.update(delta, this.c);
         if (Input.KB.wasDown(Input.KB.KEY.C)) {
-            this.c.z = !this.c.z;
+            Game.gd.DEBUG = !Game.gd.DEBUG;
+            if (Game.gd.DEBUG) {
+                this.c.s.w = Game.T_W;
+                this.c.s.h = Game.T_H;
+            }
+            else {
+                this.c.s.w = 32;
+                this.c.s.h = 14;
+            }
+            var p = Pt.from(Game.gd.getCurrPlayer().components['p-pos'].value);
+            this.c.p.x = p.x - ~~(this.c.s.w / 2);
+            this.c.p.y = p.y - ~~(this.c.s.h / 2);
             this.redraw = true;
         }
-        if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
-            Game.i.e.gsm.push('MarkerMenu');
+        Game.gd.l.update(delta, this.c);
+        var lights = [];
+        for (var e in Game.gd.e) {
+            var ent = Game.gd.e[e].components;
+            if (ent['t-move']) {
+                var tm = ent['t-move'];
+                tm.cur += delta;
+                if (tm.cur >= tm.value) {
+                    if (ent['input'] && ent['p-move'] && ent['input'].value) {
+                        input(Game.gd.e[e]);
+                    }
+                    if (ent['aabb'] && ent['p-move'] && ent['p-pos']) {
+                        this.redraw = this.redraw || collision(Game.gd.e[e], Game.gd.l);
+                    }
+                    if (ent['p-move']) {
+                        if (ent['t-move']) {
+                            if (movement(Game.gd.e[e])) {
+                                this.redraw = true;
+                                var p = ent['p-pos'].value;
+                                this.c.p.x = p.x - ~~(this.c.s.w / 2);
+                                this.c.p.y = p.y - ~~(this.c.s.h / 2);
+                                if (ent['s-move']) {
+                                    Game.i.ae.beep(ent['s-move'].value);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (this.redraw) {
+                if (ent['light'] && ent['p-pos']) {
+                    var l = ent['light'].value;
+                    l.p = ent['p-pos'].value;
+                    l.calc(Game.gd.l.m, Game.gd.l.s);
+                    lights.push(l);
+                }
+            }
         }
-        if (this.level.d) {
-            this.redraw = true;
-            this.level.d = false;
-        }
+        if (lights.length > 0)
+            Game.gd.lm = Light.reLM(lights, Game.gd.l.s);
+        if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION))
+            Game.i.e.gsm.push('marker-menu');
         this.requestingClear = this.redraw;
     };
     GameScreen.prototype.draw = function (ctx) {
+        var _this = this;
         if (this.redraw) {
-            this.level.draw(ctx, this.c);
+            Game.gd.l.draw(ctx, this.c);
+            if (Game.gd.DEBUG) {
+                Game.gd.o.forEach(function (e) {
+                    var s = e.components['sprite'].value;
+                    var p = e.components['p-pos'].value;
+                    ctx.drawImage(s, 0, 0, Game.T_S, Game.T_S, ~~((p.x - _this.c.p.x) * Game.T_S), ~~((p.y - _this.c.p.y) * Game.T_S), Game.T_S, Game.T_S);
+                });
+                Game.gd.e.forEach(function (e) {
+                    var s = e.components['sprite'].value;
+                    var p = e.components['p-pos'].value;
+                    ctx.drawImage(s, 0, 0, Game.T_S, Game.T_S, ~~((p.x - _this.c.p.x) * Game.T_S), ~~((p.y - _this.c.p.y) * Game.T_S), Game.T_S, Game.T_S);
+                });
+            }
+            else {
+                Game.gd.o.forEach(function (e) {
+                    drawEnt(ctx, e, _this.c);
+                });
+                Game.gd.e.forEach(function (e) {
+                    drawEnt(ctx, e, _this.c);
+                });
+                if (Game.gd.lm.length > 0) {
+                    ctx.fillStyle = "#0d0d0d";
+                    for (var x = this.c.p.x, rx = 0; x < this.c.p.x + this.c.s.w; x++) {
+                        for (var y = this.c.p.y, ry = 0; y < this.c.p.y + this.c.s.h; y++) {
+                            var val = Game.gd.lm[x + (y * Game.gd.l.s.h)];
+                            ctx.globalAlpha = (val ? val : 1);
+                            ctx.fillRect(rx * Game.T_S * 2, ry * Game.T_S * 2, Game.T_S * 2, Game.T_S * 2);
+                            ry++;
+                        }
+                        rx++;
+                    }
+                    ctx.globalAlpha = 1;
+                }
+            }
         }
     };
     return GameScreen;
@@ -1200,4 +1344,74 @@ var MainMenu = (function (_super) {
         }
     };
     return MainMenu;
+}(GameState));
+var MarkerMenu = (function (_super) {
+    __extends(MarkerMenu, _super);
+    function MarkerMenu() {
+        var _this = _super.call(this) || this;
+        _this.selectedIndex = 0;
+        return _this;
+    }
+    MarkerMenu.prototype.transitionIn = function () {
+        Input.KB.clearInputQueue();
+        this.selectedIndex = 5;
+        _super.prototype.transitionIn.call(this);
+    };
+    MarkerMenu.prototype.transitionOut = function () {
+        Input.KB.clearInputQueue();
+        _super.prototype.transitionIn.call(this);
+    };
+    MarkerMenu.prototype.update = function (delta) {
+        if (Input.KB.wasDown(Input.KB.KEY.ESC))
+            Game.i.e.gsm.pop();
+        if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
+            var p = Pt.from(Game.gd.getCurrPlayer().components['p-pos'].value);
+            var i = Game.gd.getObjIndexAt(p);
+            if (i !== undefined) {
+                delete Game.gd.o[i];
+            }
+            if (this.selectedIndex !== 5) {
+                var m = createMarker(this.selectedIndex === 4 ? 1 : 0, 90 * this.selectedIndex);
+                Game.gd.addObject(m, p);
+            }
+            Game.i.e.gsm.pop();
+        }
+        if (Input.KB.wasBindDown(Input.KB.META_KEY.RIGHT)) {
+            this.selectedIndex = (this.selectedIndex + 1) % 6;
+            this.redraw = true;
+        }
+        if (Input.KB.wasBindDown(Input.KB.META_KEY.LEFT)) {
+            if (this.selectedIndex === 0) {
+                this.selectedIndex = 5;
+            }
+            else {
+                this.selectedIndex = (this.selectedIndex - 1) % 6;
+            }
+            this.redraw = true;
+        }
+    };
+    MarkerMenu.prototype.draw = function (ctx) {
+        if (this.redraw) {
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = "black";
+            ctx.fillRect(128, 112, ~~(Game.P_W - 256), ~~(Game.P_H - 240));
+            drawSpr(ctx, SSM.spriteSheet("marker").sprites[0], new Pt(10, 9), 2);
+            drawSpr(ctx, SSM.spriteSheet("marker").sprites[0], new Pt(12, 9), 2, 90);
+            drawSpr(ctx, SSM.spriteSheet("marker").sprites[0], new Pt(14, 9), 2, 180);
+            drawSpr(ctx, SSM.spriteSheet("marker").sprites[0], new Pt(16, 9), 2, 270);
+            drawSpr(ctx, SSM.spriteSheet("marker").sprites[1], new Pt(18, 9), 2);
+            ctx.font = "11px sans-serif";
+            ctx.textAlign = "left";
+            ctx.fillStyle = ctx.strokeStyle = "#FFFFFF";
+            ctx.fillText("CLEAR", ~~(39 * Game.T_S), ~~(18.5 * Game.T_S));
+            ctx.font = "11px sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillStyle = ctx.strokeStyle = "#FFFFFF";
+            ctx.fillText("PLACE A MARKER", ~~(32 * Game.T_S), ~~(15.5 * Game.T_S));
+            ctx.strokeStyle = "green";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(((19 + (this.selectedIndex * 4)) * Game.T_S) - 2, (17 * Game.T_S) - 2, (this.selectedIndex === 5 ? (Game.T_S * 6) : (Game.T_S * 2)) + 4, (Game.T_S * 2) + 4);
+        }
+    };
+    return MarkerMenu;
 }(GameState));

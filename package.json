@@ -21,7 +21,8 @@
     "gulp-clean-css" : "*",
     "gulp-inline-base64": "*",
     "gulp-imagemin": "*",
-    "gulp-uglify": "*"
+    "gulp-uglify": "*",
+    "express": "*"
   },
 
   "license": "MIT"

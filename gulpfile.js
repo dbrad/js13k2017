@@ -6,6 +6,8 @@ var cleanCSS     = require('gulp-clean-css');
 var inlineBase64 = require('gulp-inline-base64');
 var uglify       = require('gulp-uglify');
 var imagemin     = require('gulp-imagemin');
+var express      = require('express');
+var path         = require('path');
 
 gulp.task('minify:html', function () {
   return gulp.src('build/*.html')
@@ -55,10 +57,22 @@ gulp.task('report', ['zip'], function (done) {
   done();
 });
 
+gulp.task('serve', ['build'], function () {
+  var htdocs = path.resolve(__dirname, 'build');
+  var app = express();
+
+  app.use(express.static(htdocs));
+  app.listen(3000, function () {
+    console.log("Server started on http://localhost:3000");
+  });
+});
+
+gulp.task("build", ['minify:html', 'uglify:js', 'minify:css', 'minify:png', 'zip', 'report']);
+
 gulp.task("watch", function () {
   gulp.watch('build/*.css', ['minify:css', 'zip', 'report']);
   gulp.watch('build/*.html', ['minify:html', 'zip', 'report']);
   gulp.watch('build/**/*.js', ['uglify:js', 'zip', 'report']);
 });
 
-gulp.task('default', ['minify:html', 'uglify:js', 'minify:css', 'minify:png', 'zip', 'report', 'watch']);
+gulp.task('default', ['build', 'watch', 'serve']);

@@ -37,17 +37,17 @@ function collision(e: GameEntity, l: Level): boolean {
 
 function movement(e: GameEntity): boolean {
     let ec = e.components;
-    let s = (<cSprite>ec['sprite']);    
+    let s = (<cSprite>ec['sprite']);
     let t = (<cTimer>ec['t-move']);
     let p = ec['p-pos'];
     let m: Pt = ec['p-move'].value;
     if (m.x !== 0 || m.y !== 0) {
         if (t.cur >= t.value) {
             t.cur = 0;
-            if(m.x === 1) s.r += 90;
-            if(m.x === -1) s.r -= 90;
-            if((m.y === -1 || m.y === 1) && s.r % 180 !== 0) s.r = 0;
-            if((m.y === -1 || m.y === 1) && s.r % 180 === 0) s.r += 180;
+            if (m.x === 1) s.r += 90;
+            else if (m.x === -1) s.r -= 90;
+            else if ((m.y === -1 || m.y === 1) && s.r % 180 !== 0) s.r = 0;
+            else if ((m.y === -1 || m.y === 1) && s.r % 180 === 0) s.r += 180;
             if (Math.abs(s.r % 360) === 1) s.r = 0;
             p.value.x += m.x;
             p.value.y += m.y;
@@ -58,3 +58,31 @@ function movement(e: GameEntity): boolean {
     return false;
 }
 
+function drawEnt(ctx: Context2D, e: GameEntity, c: Camera): void {
+    let sp = <cSprite>e.components['sprite'];
+    let s = sp.value;
+    let p = <Pt>e.components['p-pos'].value;
+    if (p.x > 0 && p.x < (c.p.x + c.s.w) && p.y > 0 && p.y < (c.p.y + c.s.h)) {
+        ctx.save();
+        ctx.translate(~~((p.x - c.p.x) * Game.T_S * 2) + Game.T_S, ~~((p.y - c.p.y) * Game.T_S * 2) + Game.T_S);
+        ctx.rotate(sp.r * Math.PI / 180);
+        ctx.drawImage(s,
+            0, 0,
+            Game.T_S, Game.T_S,
+            -Game.T_S, -Game.T_S,
+            Game.T_S * 2, Game.T_S * 2);
+        ctx.restore();
+    }
+}
+
+function drawSpr(ctx: Context2D, sp: HTMLCanvasElement, p: Pt, s: number = 1, r: number = 0): void {
+    ctx.save();
+    ctx.translate(~~(p.x * Game.T_S * s), ~~(p.y * Game.T_S * s));
+    ctx.rotate(r * Math.PI / 180);
+    ctx.drawImage(sp,
+        0, 0,
+        Game.T_S, Game.T_S,
+        -Game.T_S, -Game.T_S,
+        Game.T_S * s, Game.T_S * s);
+    ctx.restore();
+}

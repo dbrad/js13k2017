@@ -43,6 +43,7 @@ class Engine {
             this.clearScreen = this.gsm.cur.requestingClear = false;
         }
         if(!this.systemPause && (this.redraw || this.gsm.cur.redraw)) {
+            this.bufferCtx.globalAlpha = 1.0;
             this.bufferCtx.mozImageSmoothingEnabled = false;
             this.bufferCtx.imageSmoothingEnabled = false;
             this.bufferCtx.webkitImageSmoothingEnabled = false;

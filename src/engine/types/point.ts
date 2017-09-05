@@ -7,7 +7,10 @@ class Pt {
         this.y = y;
     }
 
-    static from(x: number, y: number) {
-        return new Pt(x, y);
+    static from(p: Pt) {
+        let _p: Pt = new Pt();
+        _p.x = p.x;
+        _p.y = p.y;
+        return _p;
     }
 }

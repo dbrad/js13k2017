@@ -102,6 +102,7 @@ class Game {
         this.bindings();
         this.e.gsm.reg('main-menu', new MainMenu());
         this.e.gsm.reg('game-screen', new GameScreen());
+        this.e.gsm.reg('marker-menu', new MarkerMenu());
         this.e.gsm.push('main-menu');
         this.e.run();
     }
@@ -118,10 +119,12 @@ class Game {
         this._w.onblur = this.e.pause.bind(this.e);
         this._w.onfocus = this.e.unpause.bind(this.e);
         this.ae = new AudioEngine(this._ac);
+        SSM.storeSheet(new SpriteSheet('sheet', 'sprites', 8, 0, new Dm(5, 1)));
         SSM.storeSheet(new SpriteSheet('sheet', 'marker', 8, 0, new Dm(2, 1), new Pt(8, 0)));
         SSM.storeSheet(new SpriteSheet('sheet', 'floor', 8, 0, new Dm(3, 1), new Pt(8 * 3, 0)));
         SSM.storeSheet(new SpriteSheet('sheet', 'wall', 8, 0, new Dm(4, 1), new Pt(8 * 6, 0)));
-        SSM.storeSheet(new SpriteSheet('sheet', 'sprites', 8, 0, new Dm(5, 1)));
+        SSM.storeSheet(new SpriteSheet('sheet', 'guide', 8, 0, new Dm(3, 1), new Pt(0, 8)));
+        SSM.storeSheet(new SpriteSheet('sheet', 'objects', 8, 0, new Dm(3, 1), new Pt(8 * 3, 8)));
     }
 
     /**

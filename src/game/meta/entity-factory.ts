@@ -11,10 +11,12 @@ function createPlayer(): GameEntity {
     return p;
 }
 
-function createMarker(): GameEntity {
+function createMarker(t: number, r: number = 0): GameEntity {
     let p = new GameEntity();
     p.addComponent(new cP('pos'));
-    p.addComponent(new cSprite(SSM.spriteSheet("marker").sprites[0]));
+    let s = new cSprite(SSM.spriteSheet("marker").sprites[t]);
+    s.r = r;
+    p.addComponent(s);
     return p;
 }
 
@@ -22,6 +24,14 @@ function createSwitch(): GameEntity {
     let p = new GameEntity();
     p.addComponent(new cP('pos'));
     p.addComponent(new cFlag('state', false));
-    p.addComponent(new cSprite(SSM.spriteSheet("sprites").sprites[0]));
+    p.addComponent(new cSprite(SSM.spriteSheet("guide").sprites[1]));
+    return p;
+}
+
+function createObject(s: number): GameEntity {
+    let p = new GameEntity();
+    p.addComponent(new cP('pos'));
+    p.addComponent(new cAABB(new Dm(1,1)));
+    p.addComponent(new cSprite(SSM.spriteSheet("objects").sprites[s]));
     return p;
 }

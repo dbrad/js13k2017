@@ -16,7 +16,8 @@ namespace Input {
             NUM_3 = 51,
             NUM_4 = 52,
             NUM_5 = 53,
-            C = 67
+            C = 67,
+            ESC = 27
         }
 
         export enum META_KEY {

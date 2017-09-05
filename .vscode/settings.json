@@ -1,4 +1,6 @@
 // Place your settings in this file to overwrite default and user settings.
 {
-    "typescript.referencesCodeLens.enabled": true
+    "typescript.referencesCodeLens.enabled": true,
+    "editor.fontFamily": "'DROID SANS MONO', Consolas",
+    "editor.fontSize": 13
 }
