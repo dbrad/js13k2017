@@ -66,12 +66,23 @@ class GameData {
 
     addEntity(entity: GameEntity, pos: Pt) {
         (<cP>entity.components["p-pos"]).value = pos;
-        Game.gd.e.push(entity);
+        var i = pos.x + (pos.y * this.l.s.w);
+        this.l.m[i] |= TMASK.P;
+        this.l.m[i] &= ~TMASK.W;
+        this.e_i[i] = this.e.push(entity) -1;
     }
 
     addObject(entity: GameEntity, pos: Pt) {
         (<cP>entity.components["p-pos"]).value = pos;
-        Game.gd.o.push(entity);
+        var i = pos.x + (pos.y * this.l.s.w);
+        this.l.m[i] |= TMASK.O;
+        this.o_i[i] = this.o.push(entity) - 1;
+    }
+
+    addMarker(entity: GameEntity, pos: Pt) {
+        (<cP>entity.components["p-pos"]).value = pos;
+        var i = pos.x + (pos.y * this.l.s.w);
+        this.m_i[i] = this.m.push(entity) - 1;
     }
 
     getCurrPlayer(): GameEntity {
@@ -107,7 +118,7 @@ class GameData {
         return undefined;
     }
 
-    getObjIndexAt(p: Pt): number {
+    getMarkerIndex(p: Pt): number {
         let _p: Pt;
         for (var i in this.o) {
             if (this.o[i].components['p-pos']) {

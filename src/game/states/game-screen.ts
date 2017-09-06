@@ -6,7 +6,7 @@ class GameScreen extends GameState {
         this.c = new Camera(new Pt(), new Dm(32, 14));
         Game.gd.buildObjBank(4, 8);
         Game.gd.l = new Level(new Dm(250, 250));
-        console.log(Game.gd);
+        Game.gd.l.generate();
         {
             let p = createPlayer();
             Game.gd.addEntity(p, new Pt(10, 10));
@@ -90,7 +90,6 @@ class GameScreen extends GameState {
 
         this.requestingClear = this.redraw;
     }
-
     private c: Camera;
     draw(ctx: Context2D): void {
         if (this.redraw) {
@@ -116,7 +115,28 @@ class GameScreen extends GameState {
                         ~~((p.x - this.c.p.x) * Game.T_S), ~~((p.y - this.c.p.y) * Game.T_S),
                         Game.T_S, Game.T_S);
                 });
+                ctx.globalAlpha = 0.7;
+                for (var x = this.c.p.x; x < this.c.p.x + this.c.s.w; x++) {
+                    for (var y = this.c.p.y; y < this.c.p.y + this.c.s.h; y++) {
+                        var t = Game.gd.l.m[x+(y*Game.gd.l.s.w)];
+                        if(t & TMASK.W) {
+                            ctx.fillStyle = "green";
+                        } else {
+                            ctx.fillStyle = "red";
+                        }
+                        if(t & TMASK.O) {
+                            ctx.fillStyle = "blue";
+                        }
+                        ctx.fillRect((~~(x - this.c.p.x) * Game.T_S) + 2, (~~(y - this.c.p.y) * Game.T_S) + 2, 4, 4);
+                    }
+                }
+                ctx.globalAlpha = 1;
             } else {
+                // DRAW MARKERS
+                Game.gd.m.forEach((e) => {
+                    drawEnt(ctx, e, this.c);
+                });
+
                 // DRAW OBJECTS
                 Game.gd.o.forEach((e) => {
                     drawEnt(ctx, e, this.c);

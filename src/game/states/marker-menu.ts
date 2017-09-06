@@ -25,13 +25,13 @@ class MarkerMenu extends GameState {
 
         if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
             let p = Pt.from(Game.gd.getCurrPlayer().components['p-pos'].value);
-            let i = Game.gd.getObjIndexAt(p);
+            let i = Game.gd.getMarkerIndex(p);
             if (i !== undefined) {
-                delete Game.gd.o[i];
+                delete Game.gd.m[i];
             }
             if (this.selectedIndex !== 5) {
                 let m = createMarker(this.selectedIndex === 4 ? 1 : 0, 90 * this.selectedIndex);
-                Game.gd.addObject(m, p);
+                Game.gd.addMarker(m, p);
             }
             Game.i.e.gsm.pop();
         }

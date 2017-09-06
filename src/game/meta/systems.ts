@@ -15,20 +15,36 @@ function input(e: GameEntity): void {
     }
 }
 
+function exit(e: GameEntity) {
+    
+}
+
+function activate(e: GameEntity) {
+
+}
+
+function spawn(e: GameEntity) {
+
+}
+
+function pickup(e: GameEntity) {
+
+}
+
 function collision(e: GameEntity, l: Level): boolean {
     let ec = e.components;
     let p = ec['p-pos'].value;
     let m: Pt = ec['p-move'].value;
     let t: Pt = new Pt(m.x, m.y);
     let r: boolean = false;
-    if (l.m[p.x + m.x + ((p.y + m.y) * l.s.w)] & TMASK.WALL) {
+    if (!(l.m[p.x + m.x + ((p.y + m.y) * l.s.w)] & TMASK.W)) {
         m.x = m.y = 0;
         r = true;
     }
-    if (t.x !== 0 && l.m[p.x + t.x + (p.y * l.s.w)] & TMASK.FLOOR) {
+    if (t.x !== 0 && l.m[p.x + t.x + (p.y * l.s.w)] & TMASK.W) {
         m.x = t.x;
         r = false;
-    } else if (t.y !== 0 && l.m[p.x + ((p.y + t.y) * l.s.w)] & TMASK.FLOOR) {
+    } else if (t.y !== 0 && l.m[p.x + ((p.y + t.y) * l.s.w)] & TMASK.W) {
         m.y = t.y;
         r = false;
     }
@@ -49,8 +65,10 @@ function movement(e: GameEntity): boolean {
             else if ((m.y === -1 || m.y === 1) && s.r % 180 !== 0) s.r = 0;
             else if ((m.y === -1 || m.y === 1) && s.r % 180 === 0) s.r += 180;
             if (Math.abs(s.r % 360) === 1) s.r = 0;
+            Game.gd.l.m[p.value.x + (p.value.y * Game.gd.l.s.w)] |= TMASK.W | TMASK.P;
             p.value.x += m.x;
             p.value.y += m.y;
+            Game.gd.l.m[p.value.x + (p.value.y * Game.gd.l.s.w)] &= ~TMASK.W & ~TMASK.P;
             m.x = m.y = 0;
             return true;
         }

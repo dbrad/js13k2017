@@ -575,7 +575,6 @@ function createPlayer() {
     p.addComponent(new cSound('move', new Beep(50, 5, 'sine', .25, 1)));
     p.addComponent(new cTimer('move', 150));
     p.addComponent(new cLight(new Light(new Pt(), 0.85)));
-    p.addComponent(new cAABB(new Dm(1, 1)));
     p.addComponent(new cFlag('input', true));
     p.addComponent(new cSprite(SSM.spriteSheet("sprites").sprites[0]));
     return p;
@@ -599,15 +598,18 @@ function createSwitch() {
 function createObject(s) {
     var p = new GameEntity();
     p.addComponent(new cP('pos'));
-    p.addComponent(new cAABB(new Dm(1, 1)));
     p.addComponent(new cSprite(SSM.spriteSheet("objects").sprites[s]));
+    p.addComponent(new cSound('collide', new Beep(50, 5, 'sine', .25, 1)));
     return p;
 }
 var GameData = (function () {
     function GameData() {
         this.e = [];
+        this.e_i = [];
         this.m = [];
+        this.m_i = [];
         this.o = [];
+        this.o_i = [];
         this.lm = [];
     }
     GameData.prototype.buildObjBank = function (p, g) {
@@ -656,11 +658,21 @@ var GameData = (function () {
     };
     GameData.prototype.addEntity = function (entity, pos) {
         entity.components["p-pos"].value = pos;
-        Game.gd.e.push(entity);
+        var i = pos.x + (pos.y * this.l.s.w);
+        this.l.m[i] |= TMASK.P;
+        this.l.m[i] &= ~TMASK.W;
+        this.e_i[i] = this.e.push(entity) - 1;
     };
     GameData.prototype.addObject = function (entity, pos) {
         entity.components["p-pos"].value = pos;
-        Game.gd.o.push(entity);
+        var i = pos.x + (pos.y * this.l.s.w);
+        this.l.m[i] |= TMASK.O;
+        this.o_i[i] = this.o.push(entity) - 1;
+    };
+    GameData.prototype.addMarker = function (entity, pos) {
+        entity.components["p-pos"].value = pos;
+        var i = pos.x + (pos.y * this.l.s.w);
+        this.m_i[i] = this.m.push(entity) - 1;
     };
     GameData.prototype.getCurrPlayer = function () {
         for (var i in this.e) {
@@ -692,7 +704,7 @@ var GameData = (function () {
         }
         return undefined;
     };
-    GameData.prototype.getObjIndexAt = function (p) {
+    GameData.prototype.getMarkerIndex = function (p) {
         var _p;
         for (var i in this.o) {
             if (this.o[i].components['p-pos']) {
@@ -707,13 +719,12 @@ var GameData = (function () {
 }());
 var TMASK;
 (function (TMASK) {
-    TMASK.D = 1;
-    TMASK.V = 2;
-    TMASK.W = 4;
-    TMASK.O = 8;
+    TMASK.W = 1;
+    TMASK.O = 2;
+    TMASK.P = 4;
+    TMASK.FLOOR = 8;
     TMASK.WALL = 16;
-    TMASK.FLOOR = 32;
-    TMASK.S_WALL = 64;
+    TMASK.S_WALL = 32;
 })(TMASK || (TMASK = {}));
 var Level = (function () {
     function Level(s) {
@@ -728,7 +739,6 @@ var Level = (function () {
         this.ctx.mozImageSmoothingEnabled = false;
         this.ctx.webkitImageSmoothingEnabled = false;
         this.ctx.imageSmoothingEnabled = false;
-        this.generate();
     }
     Level.prototype.calcOrigin = function (r, d) {
         var N = d.w === WALL.N, S = d.w === WALL.S, E = d.w === WALL.E, W = d.w === WALL.W;
@@ -1065,21 +1075,29 @@ function input(e) {
         m.x += 1;
     }
 }
+function exit(e) {
+}
+function activate(e) {
+}
+function spawn(e) {
+}
+function pickup(e) {
+}
 function collision(e, l) {
     var ec = e.components;
     var p = ec['p-pos'].value;
     var m = ec['p-move'].value;
     var t = new Pt(m.x, m.y);
     var r = false;
-    if (l.m[p.x + m.x + ((p.y + m.y) * l.s.w)] & TMASK.WALL) {
+    if (!(l.m[p.x + m.x + ((p.y + m.y) * l.s.w)] & TMASK.W)) {
         m.x = m.y = 0;
         r = true;
     }
-    if (t.x !== 0 && l.m[p.x + t.x + (p.y * l.s.w)] & TMASK.FLOOR) {
+    if (t.x !== 0 && l.m[p.x + t.x + (p.y * l.s.w)] & TMASK.W) {
         m.x = t.x;
         r = false;
     }
-    else if (t.y !== 0 && l.m[p.x + ((p.y + t.y) * l.s.w)] & TMASK.FLOOR) {
+    else if (t.y !== 0 && l.m[p.x + ((p.y + t.y) * l.s.w)] & TMASK.W) {
         m.y = t.y;
         r = false;
     }
@@ -1104,8 +1122,10 @@ function movement(e) {
                 s.r += 180;
             if (Math.abs(s.r % 360) === 1)
                 s.r = 0;
+            Game.gd.l.m[p.value.x + (p.value.y * Game.gd.l.s.w)] |= TMASK.W | TMASK.P;
             p.value.x += m.x;
             p.value.y += m.y;
+            Game.gd.l.m[p.value.x + (p.value.y * Game.gd.l.s.w)] &= ~TMASK.W & ~TMASK.P;
             m.x = m.y = 0;
             return true;
         }
@@ -1168,7 +1188,7 @@ var GameScreen = (function (_super) {
         _this.c = new Camera(new Pt(), new Dm(32, 14));
         Game.gd.buildObjBank(4, 8);
         Game.gd.l = new Level(new Dm(250, 250));
-        console.log(Game.gd);
+        Game.gd.l.generate();
         {
             var p_1 = createPlayer();
             Game.gd.addEntity(p_1, new Pt(10, 10));
@@ -1260,8 +1280,28 @@ var GameScreen = (function (_super) {
                     var p = e.components['p-pos'].value;
                     ctx.drawImage(s, 0, 0, Game.T_S, Game.T_S, ~~((p.x - _this.c.p.x) * Game.T_S), ~~((p.y - _this.c.p.y) * Game.T_S), Game.T_S, Game.T_S);
                 });
+                ctx.globalAlpha = 0.7;
+                for (var x = this.c.p.x; x < this.c.p.x + this.c.s.w; x++) {
+                    for (var y = this.c.p.y; y < this.c.p.y + this.c.s.h; y++) {
+                        var t = Game.gd.l.m[x + (y * Game.gd.l.s.w)];
+                        if (t & TMASK.W) {
+                            ctx.fillStyle = "green";
+                        }
+                        else {
+                            ctx.fillStyle = "red";
+                        }
+                        if (t & TMASK.O) {
+                            ctx.fillStyle = "blue";
+                        }
+                        ctx.fillRect((~~(x - this.c.p.x) * Game.T_S) + 2, (~~(y - this.c.p.y) * Game.T_S) + 2, 4, 4);
+                    }
+                }
+                ctx.globalAlpha = 1;
             }
             else {
+                Game.gd.m.forEach(function (e) {
+                    drawEnt(ctx, e, _this.c);
+                });
                 Game.gd.o.forEach(function (e) {
                     drawEnt(ctx, e, _this.c);
                 });
@@ -1270,9 +1310,9 @@ var GameScreen = (function (_super) {
                 });
                 if (Game.gd.lm.length > 0) {
                     ctx.fillStyle = "#0d0d0d";
-                    for (var x = this.c.p.x, rx = 0; x < this.c.p.x + this.c.s.w; x++) {
-                        for (var y = this.c.p.y, ry = 0; y < this.c.p.y + this.c.s.h; y++) {
-                            var val = Game.gd.lm[x + (y * Game.gd.l.s.h)];
+                    for (var x_1 = this.c.p.x, rx = 0; x_1 < this.c.p.x + this.c.s.w; x_1++) {
+                        for (var y_1 = this.c.p.y, ry = 0; y_1 < this.c.p.y + this.c.s.h; y_1++) {
+                            var val = Game.gd.lm[x_1 + (y_1 * Game.gd.l.s.h)];
                             ctx.globalAlpha = (val ? val : 1);
                             ctx.fillRect(rx * Game.T_S * 2, ry * Game.T_S * 2, Game.T_S * 2, Game.T_S * 2);
                             ry++;
@@ -1366,13 +1406,13 @@ var MarkerMenu = (function (_super) {
             Game.i.e.gsm.pop();
         if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
             var p = Pt.from(Game.gd.getCurrPlayer().components['p-pos'].value);
-            var i = Game.gd.getObjIndexAt(p);
+            var i = Game.gd.getMarkerIndex(p);
             if (i !== undefined) {
-                delete Game.gd.o[i];
+                delete Game.gd.m[i];
             }
             if (this.selectedIndex !== 5) {
                 var m = createMarker(this.selectedIndex === 4 ? 1 : 0, 90 * this.selectedIndex);
-                Game.gd.addObject(m, p);
+                Game.gd.addMarker(m, p);
             }
             Game.i.e.gsm.pop();
         }

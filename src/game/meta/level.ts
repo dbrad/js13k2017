@@ -1,22 +1,22 @@
 /*
-    0000 0001 = 1 = discovered
-    0000 0010 = 2 = visable
-    0000 0100 = 4 = walkable
-    0000 1000 = 8 = object present
+    0000 0001 = 1 = walkable
+    0000 0010 = 2 = object present
+    0000 0100 = 4 = player present
+    0000 1000 = 8 = floor
     0001 0000 = 16 = wall
-    0010 0000 = 32 = floor
-    0100 0000 = 64 = side wall
-    1000 0000 = 128 = FUTURE USE
+    0010 0000 = 32 = side wall
 */
 namespace TMASK {
-    export const D = 1;
-    export const V = 2;
-    export const W = 4;
-    export const O = 8;
+    export const W = 1;
+    export const O = 2;
+    export const P = 4;
+    export const FLOOR = 8;
     export const WALL = 16;
-    export const FLOOR = 32;
-    export const S_WALL = 64;
+    export const S_WALL = 32;
 }
+//     0000 0000 0000 0000 0000 0000 0000
+// |PLAYER| |OBJECT | |MARKER | |META   |
+// 1 0000  0000 0000  0000 0000
 class Level {
     public m: number[] = [];
     private rc: HTMLCanvasElement;
@@ -33,8 +33,39 @@ class Level {
         this.ctx.mozImageSmoothingEnabled = false;
         this.ctx.webkitImageSmoothingEnabled = false;
         this.ctx.imageSmoothingEnabled = false;
+    }
+    movePlayer(op: Pt, np: Pt, i: number) {
+        // 15 << 24
+        this.m[op.x + (op.y * this.s.w)] &= ~(15 << 24);
+        this.m[np.x + (np.y*this.s.w)] |= ((i+1) << 24);
+    }
+    moveObject(op: Pt, np: Pt, i: number) {
+        // 255 << 16
+        this.m[op.x + (op.y * this.s.w)] &= ~(255 << 16);
+        this.m[np.x + (np.y*this.s.w)] |= ((i+1) << 16);
+    }
+    moveMarker(op: Pt, np: Pt, i: number) {
+        // 255 << 8
+        this.m[op.x + (op.y * this.s.w)] &= ~(255 << 8);
+        this.m[np.x + (np.y * this.s.w)] |= ((i+1) << 8);
+    }
+    playerAt(): boolean {
 
-        this.generate();
+    }
+    objectAt(): boolean {
+        
+    }
+    markerAt(): boolean {
+        
+    }
+    getPlayerAt(): GameEntity {
+        
+    }
+    getObjectAt(): GameEntity {
+        
+    }
+    getMarkerAt(): GameEntity {
+        
     }
     private calcOrigin(r: Room, d: { p: Pt, w: WALL }): Pt {
         let N = d.w === WALL.N,
@@ -103,7 +134,7 @@ class Level {
             mx++;
         }
     }
-    private generate(): void {
+    public generate(): void {
         let placedRooms: Room[] = [];
         let features: GameEntity[] = [];
         let tRoom: Room;
