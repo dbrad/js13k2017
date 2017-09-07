@@ -23,6 +23,8 @@ class GameData {
     public l: Level;
 
     public lm: number[] = [];
+    
+    public lights: Light[] = [];
 
     public DEBUG: boolean;
 
@@ -68,66 +70,115 @@ class GameData {
         (<cP>entity.components["p-pos"]).value = pos;
         var i = pos.x + (pos.y * this.l.s.w);
         this.l.m[i] |= TMASK.P;
-        this.l.m[i] &= ~TMASK.W;
-        this.e_i[i] = this.e.push(entity) -1;
+        var ind = this.e.push(entity);
+        this.l.m[i] |= ((ind) << 24);
     }
 
     addObject(entity: GameEntity, pos: Pt) {
         (<cP>entity.components["p-pos"]).value = pos;
         var i = pos.x + (pos.y * this.l.s.w);
         this.l.m[i] |= TMASK.O;
-        this.o_i[i] = this.o.push(entity) - 1;
+        var ind = this.o.push(entity);
+        this.l.m[i] |= ((ind) << 16);        
     }
 
     addMarker(entity: GameEntity, pos: Pt) {
         (<cP>entity.components["p-pos"]).value = pos;
         var i = pos.x + (pos.y * this.l.s.w);
-        this.m_i[i] = this.m.push(entity) - 1;
+        this.l.m[i] |= TMASK.M;        
+        var ind = this.m.push(entity);
+        this.l.m[i] |= ((ind) << 8);
+    }
+
+    movePlayer(op: Pt, np: Pt): void {
+        // 15 << 24
+        if(!this.l.m[op.x + (op.y * this.l.s.w)])
+            return;
+        var i = (this.l.m[op.x + (op.y*this.l.s.w)] >> 24) - 1;
+        this.l.m[op.x + (op.y * this.l.s.w)] &= ~(15 << 24);
+        this.l.m[op.x + (op.y * this.l.s.w)] &= ~TMASK.P;
+        
+        if(this.l.m[np.x + (np.y * this.l.s.w)] == undefined)
+            this.l.m[np.x + (np.y * this.l.s.w)] = 0;
+        this.l.m[np.x + (np.y*this.l.s.w)] |= ((i+1) << 24);
+        this.l.m[np.x + (np.y*this.l.s.w)] |= TMASK.P;        
+    }
+
+    /* 
+    moveObject(op: Pt, np: Pt, i: number) {
+        // 255 << 16
+        if(!this.l.m[op.x + (op.y * this.l.s.w)])
+            this.l.m[op.x + (op.y * this.l.s.w)] = 0;
+        this.l.m[op.x + (op.y * this.l.s.w)] &= ~(255 << 16);
+        if(!this.l.m[np.x + (np.y * this.l.s.w)])
+            this.l.m[np.x + (np.y * this.l.s.w)] = 0;
+        this.l.m[np.x + (np.y*this.l.s.w)] |= ((i+1) << 16);
+    }
+
+    moveMarker(op: Pt, np: Pt, i: number) {
+        // 255 << 8
+        if(!this.l.m[op.x + (op.y * this.l.s.w)])
+            this.l.m[op.x + (op.y * this.l.s.w)] = 0;
+        this.l.m[op.x + (op.y * this.l.s.w)] &= ~(255 << 8);
+        if(!this.l.m[np.x + (np.y * this.l.s.w)])
+            this.l.m[np.x + (np.y * this.l.s.w)] = 0;
+        this.l.m[np.x + (np.y * this.l.s.w)] |= ((i+1) << 8);
+    } 
+    */
+
+    playerAt(p: Pt): boolean {
+        return (this.l.m[p.x + (p.y * this.l.s.w)] & TMASK.P) !== 0
+        // return this.l.m[p.x + (p.y*this.l.s.w)] && this.l.m[p.x + (p.y*this.l.s.w)] >> 24 !== 0;
+    }
+
+    objectAt(p: Pt): boolean {
+        return (this.l.m[p.x + (p.y * this.l.s.w)] & TMASK.O) !== 0
+        // return this.l.m[p.x + (p.y*this.l.s.w)] && ((this.l.m[p.x + (p.y*this.l.s.w)] & ~(15 << 24) ) >> 16) !== 0;
+    }
+
+    markerAt(p: Pt): boolean {
+        return (this.l.m[p.x + (p.y * this.l.s.w)] & TMASK.M) !== 0
+        // return this.l.m[p.x + (p.y*this.l.s.w)] && ((this.l.m[p.x + (p.y*this.l.s.w)] & ~(4095 << 16) ) >> 8) !== 0;
+    }
+
+    getPlayerAt(p: Pt): GameEntity {
+        if(this.playerAt(p)) {
+            var i = (this.l.m[p.x + (p.y * this.l.s.w)] >> 24) - 1;
+            return Game.gd.e[i];
+        }
+        return undefined;
+    }
+
+    getObjectAt(p: Pt): GameEntity {
+        if(this.objectAt(p)) {
+            var i = ((this.l.m[p.x + (p.y * this.l.s.w)] & ~(15 << 24) ) >> 16) - 1;
+            return Game.gd.o[i];
+        }
+        return undefined;
+    }
+
+    getMarkerAt(p: Pt): GameEntity {
+        if(this.markerAt(p)) {
+            var i = ((this.l.m[p.x + (p.y * this.l.s.w)] & ~(4095 << 16) ) >> 8) - 1;
+            return Game.gd.m[i];
+        }
+        return undefined;
     }
 
     getCurrPlayer(): GameEntity {
         for (var i in this.e) {
-            if (this.e[i].components['input'] && this.e[i].components['input'].value) {
+            if (this.e[i].components['input'] && this.e[i].components['input'].value === true) {
                 return this.e[i];
             }
         }
         return undefined;
     }
 
-    getEntAt(p: Pt): GameEntity {
-        let _p: Pt;
-        for (var i in this.e) {
-            if (this.e[i].components['p-pos']) {
-                _p = this.e[i].components['p-pos'].value;
-                if (_p.x === p.x && _p.y === p.y)
-                    return this.e[i];
-            }
-        }
-        return undefined;
-    }
-
-    getObjAt(p: Pt): GameEntity {
-        let _p: Pt;
-        for (var i in this.o) {
-            if (this.o[i].components['p-pos']) {
-                _p = this.o[i].components['p-pos'].value;
-                if (_p.x === p.x && _p.y === p.y)
-                    return this.o[i];
-            }
-        }
-        return undefined;
-    }
-
     getMarkerIndex(p: Pt): number {
-        let _p: Pt;
-        for (var i in this.o) {
-            if (this.o[i].components['p-pos']) {
-                _p = this.o[i].components['p-pos'].value;
-                if (_p.x === p.x && _p.y === p.y)
-                    return parseInt(i);
-            }
+        if(this.markerAt(p)) {
+            return ((this.l.m[p.x + (p.y * this.l.s.w)] & ~(4095 << 16) ) >> 8) - 1;
         }
-        return undefined;
+        return undefined;    
     }
 
 }

@@ -5,7 +5,7 @@ function createPlayer(): GameEntity {
     p.addComponent(new cSound('move', new Beep(50, 5 ,'sine', .25, 1)));
     p.addComponent(new cTimer('move', 150));            
     p.addComponent(new cLight(new Light(new Pt(), 0.85)));
-    p.addComponent(new cFlag('input', true));
+    p.addComponent(new cFlag('input', false));
     p.addComponent(new cSprite(SSM.spriteSheet("sprites").sprites[0]));
     return p;
 }

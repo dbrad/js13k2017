@@ -28,6 +28,7 @@ class MarkerMenu extends GameState {
             let i = Game.gd.getMarkerIndex(p);
             if (i !== undefined) {
                 delete Game.gd.m[i];
+                Game.gd.l.m[p.x+(p.y*Game.gd.l.s.w)] &= ~TMASK.M;
             }
             if (this.selectedIndex !== 5) {
                 let m = createMarker(this.selectedIndex === 4 ? 1 : 0, 90 * this.selectedIndex);

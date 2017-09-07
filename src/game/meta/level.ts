@@ -9,14 +9,14 @@
 namespace TMASK {
     export const W = 1;
     export const O = 2;
-    export const P = 4;
-    export const FLOOR = 8;
-    export const WALL = 16;
-    export const S_WALL = 32;
+    export const M = 4;
+    export const P = 8;
+    export const FLOOR = 16;
+    export const WALL = 32;
+    export const S_WALL = 64;
 }
 //     0000 0000 0000 0000 0000 0000 0000
 // |PLAYER| |OBJECT | |MARKER | |META   |
-// 1 0000  0000 0000  0000 0000
 class Level {
     public m: number[] = [];
     private rc: HTMLCanvasElement;
@@ -34,39 +34,7 @@ class Level {
         this.ctx.webkitImageSmoothingEnabled = false;
         this.ctx.imageSmoothingEnabled = false;
     }
-    movePlayer(op: Pt, np: Pt, i: number) {
-        // 15 << 24
-        this.m[op.x + (op.y * this.s.w)] &= ~(15 << 24);
-        this.m[np.x + (np.y*this.s.w)] |= ((i+1) << 24);
-    }
-    moveObject(op: Pt, np: Pt, i: number) {
-        // 255 << 16
-        this.m[op.x + (op.y * this.s.w)] &= ~(255 << 16);
-        this.m[np.x + (np.y*this.s.w)] |= ((i+1) << 16);
-    }
-    moveMarker(op: Pt, np: Pt, i: number) {
-        // 255 << 8
-        this.m[op.x + (op.y * this.s.w)] &= ~(255 << 8);
-        this.m[np.x + (np.y * this.s.w)] |= ((i+1) << 8);
-    }
-    playerAt(): boolean {
 
-    }
-    objectAt(): boolean {
-        
-    }
-    markerAt(): boolean {
-        
-    }
-    getPlayerAt(): GameEntity {
-        
-    }
-    getObjectAt(): GameEntity {
-        
-    }
-    getMarkerAt(): GameEntity {
-        
-    }
     private calcOrigin(r: Room, d: { p: Pt, w: WALL }): Pt {
         let N = d.w === WALL.N,
             S = d.w === WALL.S,

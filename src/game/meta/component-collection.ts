@@ -15,14 +15,6 @@ class cP extends Component<Pt> {
 		this.value = p;
 	}
 }
-
-class cMove extends Component<Pt> {
-	constructor(p: Pt = new Pt()) {
-		super('move');
-		this.value = p;
-	}
-}
-
 class cStyle extends Component<string> {
 	constructor(colour: string) {
 		super('style');

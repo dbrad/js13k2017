@@ -493,16 +493,6 @@ var cP = (function (_super) {
     }
     return cP;
 }(Component));
-var cMove = (function (_super) {
-    __extends(cMove, _super);
-    function cMove(p) {
-        if (p === void 0) { p = new Pt(); }
-        var _this = _super.call(this, 'move') || this;
-        _this.value = p;
-        return _this;
-    }
-    return cMove;
-}(Component));
 var cStyle = (function (_super) {
     __extends(cStyle, _super);
     function cStyle(colour) {
@@ -575,7 +565,7 @@ function createPlayer() {
     p.addComponent(new cSound('move', new Beep(50, 5, 'sine', .25, 1)));
     p.addComponent(new cTimer('move', 150));
     p.addComponent(new cLight(new Light(new Pt(), 0.85)));
-    p.addComponent(new cFlag('input', true));
+    p.addComponent(new cFlag('input', false));
     p.addComponent(new cSprite(SSM.spriteSheet("sprites").sprites[0]));
     return p;
 }
@@ -605,12 +595,10 @@ function createObject(s) {
 var GameData = (function () {
     function GameData() {
         this.e = [];
-        this.e_i = [];
         this.m = [];
-        this.m_i = [];
         this.o = [];
-        this.o_i = [];
         this.lm = [];
+        this.lights = [];
     }
     GameData.prototype.buildObjBank = function (p, g) {
         var seq = [0];
@@ -660,58 +648,75 @@ var GameData = (function () {
         entity.components["p-pos"].value = pos;
         var i = pos.x + (pos.y * this.l.s.w);
         this.l.m[i] |= TMASK.P;
-        this.l.m[i] &= ~TMASK.W;
-        this.e_i[i] = this.e.push(entity) - 1;
+        var ind = this.e.push(entity);
+        this.l.m[i] |= ((ind) << 24);
     };
     GameData.prototype.addObject = function (entity, pos) {
         entity.components["p-pos"].value = pos;
         var i = pos.x + (pos.y * this.l.s.w);
         this.l.m[i] |= TMASK.O;
-        this.o_i[i] = this.o.push(entity) - 1;
+        var ind = this.o.push(entity);
+        this.l.m[i] |= ((ind) << 16);
     };
     GameData.prototype.addMarker = function (entity, pos) {
         entity.components["p-pos"].value = pos;
         var i = pos.x + (pos.y * this.l.s.w);
-        this.m_i[i] = this.m.push(entity) - 1;
+        this.l.m[i] |= TMASK.M;
+        var ind = this.m.push(entity);
+        this.l.m[i] |= ((ind) << 8);
+    };
+    GameData.prototype.movePlayer = function (op, np) {
+        if (!this.l.m[op.x + (op.y * this.l.s.w)])
+            return;
+        var i = (this.l.m[op.x + (op.y * this.l.s.w)] >> 24) - 1;
+        this.l.m[op.x + (op.y * this.l.s.w)] &= ~(15 << 24);
+        this.l.m[op.x + (op.y * this.l.s.w)] &= ~TMASK.P;
+        if (this.l.m[np.x + (np.y * this.l.s.w)] == undefined)
+            this.l.m[np.x + (np.y * this.l.s.w)] = 0;
+        this.l.m[np.x + (np.y * this.l.s.w)] |= ((i + 1) << 24);
+        this.l.m[np.x + (np.y * this.l.s.w)] |= TMASK.P;
+    };
+    GameData.prototype.playerAt = function (p) {
+        return (this.l.m[p.x + (p.y * this.l.s.w)] & TMASK.P) !== 0;
+    };
+    GameData.prototype.objectAt = function (p) {
+        return (this.l.m[p.x + (p.y * this.l.s.w)] & TMASK.O) !== 0;
+    };
+    GameData.prototype.markerAt = function (p) {
+        return (this.l.m[p.x + (p.y * this.l.s.w)] & TMASK.M) !== 0;
+    };
+    GameData.prototype.getPlayerAt = function (p) {
+        if (this.playerAt(p)) {
+            var i = (this.l.m[p.x + (p.y * this.l.s.w)] >> 24) - 1;
+            return Game.gd.e[i];
+        }
+        return undefined;
+    };
+    GameData.prototype.getObjectAt = function (p) {
+        if (this.objectAt(p)) {
+            var i = ((this.l.m[p.x + (p.y * this.l.s.w)] & ~(15 << 24)) >> 16) - 1;
+            return Game.gd.o[i];
+        }
+        return undefined;
+    };
+    GameData.prototype.getMarkerAt = function (p) {
+        if (this.markerAt(p)) {
+            var i = ((this.l.m[p.x + (p.y * this.l.s.w)] & ~(4095 << 16)) >> 8) - 1;
+            return Game.gd.m[i];
+        }
+        return undefined;
     };
     GameData.prototype.getCurrPlayer = function () {
         for (var i in this.e) {
-            if (this.e[i].components['input'] && this.e[i].components['input'].value) {
+            if (this.e[i].components['input'] && this.e[i].components['input'].value === true) {
                 return this.e[i];
             }
         }
         return undefined;
     };
-    GameData.prototype.getEntAt = function (p) {
-        var _p;
-        for (var i in this.e) {
-            if (this.e[i].components['p-pos']) {
-                _p = this.e[i].components['p-pos'].value;
-                if (_p.x === p.x && _p.y === p.y)
-                    return this.e[i];
-            }
-        }
-        return undefined;
-    };
-    GameData.prototype.getObjAt = function (p) {
-        var _p;
-        for (var i in this.o) {
-            if (this.o[i].components['p-pos']) {
-                _p = this.o[i].components['p-pos'].value;
-                if (_p.x === p.x && _p.y === p.y)
-                    return this.o[i];
-            }
-        }
-        return undefined;
-    };
     GameData.prototype.getMarkerIndex = function (p) {
-        var _p;
-        for (var i in this.o) {
-            if (this.o[i].components['p-pos']) {
-                _p = this.o[i].components['p-pos'].value;
-                if (_p.x === p.x && _p.y === p.y)
-                    return parseInt(i);
-            }
+        if (this.markerAt(p)) {
+            return ((this.l.m[p.x + (p.y * this.l.s.w)] & ~(4095 << 16)) >> 8) - 1;
         }
         return undefined;
     };
@@ -721,10 +726,11 @@ var TMASK;
 (function (TMASK) {
     TMASK.W = 1;
     TMASK.O = 2;
-    TMASK.P = 4;
-    TMASK.FLOOR = 8;
-    TMASK.WALL = 16;
-    TMASK.S_WALL = 32;
+    TMASK.M = 4;
+    TMASK.P = 8;
+    TMASK.FLOOR = 16;
+    TMASK.WALL = 32;
+    TMASK.S_WALL = 64;
 })(TMASK || (TMASK = {}));
 var Level = (function () {
     function Level(s) {
@@ -1061,19 +1067,25 @@ var Room = (function () {
 }());
 function input(e) {
     var m = e.components['p-move'].value;
+    var r;
     m.x = m.y = 0;
     if (Input.KB.isBindDown(Input.KB.META_KEY.UP)) {
         m.y -= 1;
+        r = true;
     }
     if (Input.KB.isBindDown(Input.KB.META_KEY.DOWN)) {
         m.y += 1;
+        r = true;
     }
     if (Input.KB.isBindDown(Input.KB.META_KEY.LEFT)) {
         m.x -= 1;
+        r = true;
     }
     if (Input.KB.isBindDown(Input.KB.META_KEY.RIGHT)) {
         m.x += 1;
+        r = true;
     }
+    return r;
 }
 function exit(e) {
 }
@@ -1089,46 +1101,48 @@ function collision(e, l) {
     var m = ec['p-move'].value;
     var t = new Pt(m.x, m.y);
     var r = false;
-    if (!(l.m[p.x + m.x + ((p.y + m.y) * l.s.w)] & TMASK.W)) {
+    if (!(l.m[p.x + m.x + ((p.y + m.y) * l.s.w)] & TMASK.W) || Game.gd.playerAt(new Pt(p.x + m.x, p.y + m.y))) {
         m.x = m.y = 0;
         r = true;
     }
-    if (t.x !== 0 && l.m[p.x + t.x + (p.y * l.s.w)] & TMASK.W) {
+    if (t.x !== 0 && (l.m[p.x + t.x + (p.y * l.s.w)] & TMASK.W) && !Game.gd.playerAt(new Pt(p.x + t.x, p.y))) {
         m.x = t.x;
         r = false;
     }
-    else if (t.y !== 0 && l.m[p.x + ((p.y + t.y) * l.s.w)] & TMASK.W) {
+    else if (t.y !== 0 && (l.m[p.x + ((p.y + t.y) * l.s.w)] & TMASK.W) && !Game.gd.playerAt(new Pt(p.x, p.y + t.y))) {
         m.y = t.y;
         r = false;
     }
     return r;
 }
-function movement(e) {
+function animate(e) {
     var ec = e.components;
     var s = ec['sprite'];
-    var t = ec['t-move'];
+    var m = ec['p-move'].value;
+    if (m.x !== 0 || m.y !== 0) {
+        if (m.x === 1)
+            s.r += 90;
+        else if (m.x === -1)
+            s.r -= 90;
+        else if ((m.y === -1 || m.y === 1) && s.r % 180 !== 0)
+            s.r = 0;
+        else if ((m.y === -1 || m.y === 1) && s.r % 180 === 0)
+            s.r += 180;
+        if (Math.abs(s.r % 360) === 1)
+            s.r = 0;
+    }
+}
+function movement(e) {
+    var ec = e.components;
     var p = ec['p-pos'];
     var m = ec['p-move'].value;
     if (m.x !== 0 || m.y !== 0) {
-        if (t.cur >= t.value) {
-            t.cur = 0;
-            if (m.x === 1)
-                s.r += 90;
-            else if (m.x === -1)
-                s.r -= 90;
-            else if ((m.y === -1 || m.y === 1) && s.r % 180 !== 0)
-                s.r = 0;
-            else if ((m.y === -1 || m.y === 1) && s.r % 180 === 0)
-                s.r += 180;
-            if (Math.abs(s.r % 360) === 1)
-                s.r = 0;
-            Game.gd.l.m[p.value.x + (p.value.y * Game.gd.l.s.w)] |= TMASK.W | TMASK.P;
-            p.value.x += m.x;
-            p.value.y += m.y;
-            Game.gd.l.m[p.value.x + (p.value.y * Game.gd.l.s.w)] &= ~TMASK.W & ~TMASK.P;
-            m.x = m.y = 0;
-            return true;
-        }
+        var o = Pt.from(p.value);
+        p.value.x += m.x;
+        p.value.y += m.y;
+        Game.gd.movePlayer(o, p.value);
+        m.x = m.y = 0;
+        return true;
     }
     return false;
 }
@@ -1193,6 +1207,11 @@ var GameScreen = (function (_super) {
             var p_1 = createPlayer();
             Game.gd.addEntity(p_1, new Pt(10, 10));
         }
+        {
+            var p_2 = createPlayer();
+            p_2.components['input'].value = true;
+            Game.gd.addEntity(p_2, new Pt(11, 10));
+        }
         var p = Pt.from(Game.gd.getCurrPlayer().components['p-pos'].value);
         _this.c.p.x = p.x - ~~(_this.c.s.w / 2);
         _this.c.p.y = p.y - ~~(_this.c.s.h / 2);
@@ -1222,45 +1241,47 @@ var GameScreen = (function (_super) {
             this.redraw = true;
         }
         Game.gd.l.update(delta, this.c);
-        var lights = [];
         for (var e in Game.gd.e) {
             var ent = Game.gd.e[e].components;
-            if (ent['t-move']) {
+            if (ent['input'] && ent['input'].value && ent['t-move']) {
                 var tm = ent['t-move'];
                 tm.cur += delta;
                 if (tm.cur >= tm.value) {
-                    if (ent['input'] && ent['p-move'] && ent['input'].value) {
-                        input(Game.gd.e[e]);
-                    }
-                    if (ent['aabb'] && ent['p-move'] && ent['p-pos']) {
-                        this.redraw = this.redraw || collision(Game.gd.e[e], Game.gd.l);
-                    }
                     if (ent['p-move']) {
-                        if (ent['t-move']) {
-                            if (movement(Game.gd.e[e])) {
-                                this.redraw = true;
-                                var p = ent['p-pos'].value;
-                                this.c.p.x = p.x - ~~(this.c.s.w / 2);
-                                this.c.p.y = p.y - ~~(this.c.s.h / 2);
-                                if (ent['s-move']) {
-                                    Game.i.ae.beep(ent['s-move'].value);
+                        if (input(Game.gd.e[e])) {
+                            tm.cur = 0;
+                            if (ent['p-pos'] && !collision(Game.gd.e[e], Game.gd.l)) {
+                                if (ent['sprite']) {
+                                    animate(Game.gd.e[e]);
+                                }
+                                if (movement(Game.gd.e[e])) {
+                                    this.redraw = true;
+                                    var p = ent['p-pos'].value;
+                                    this.c.p.x = p.x - ~~(this.c.s.w / 2);
+                                    this.c.p.y = p.y - ~~(this.c.s.h / 2);
+                                    if (ent['s-move']) {
+                                        Game.i.ae.beep(ent['s-move'].value);
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-            if (this.redraw) {
+        }
+        if (this.redraw) {
+            for (var e in Game.gd.e) {
+                var ent = Game.gd.e[e].components;
                 if (ent['light'] && ent['p-pos']) {
                     var l = ent['light'].value;
                     l.p = ent['p-pos'].value;
                     l.calc(Game.gd.l.m, Game.gd.l.s);
-                    lights.push(l);
+                    Game.gd.lights.push(l);
                 }
             }
+            if (Game.gd.lights.length > 0)
+                Game.gd.lm = Light.reLM(Game.gd.lights, Game.gd.l.s);
         }
-        if (lights.length > 0)
-            Game.gd.lm = Light.reLM(lights, Game.gd.l.s);
         if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION))
             Game.i.e.gsm.push('marker-menu');
         this.requestingClear = this.redraw;
@@ -1270,6 +1291,11 @@ var GameScreen = (function (_super) {
         if (this.redraw) {
             Game.gd.l.draw(ctx, this.c);
             if (Game.gd.DEBUG) {
+                Game.gd.m.forEach(function (e) {
+                    var s = e.components['sprite'].value;
+                    var p = e.components['p-pos'].value;
+                    ctx.drawImage(s, 0, 0, Game.T_S, Game.T_S, ~~((p.x - _this.c.p.x) * Game.T_S), ~~((p.y - _this.c.p.y) * Game.T_S), Game.T_S, Game.T_S);
+                });
                 Game.gd.o.forEach(function (e) {
                     var s = e.components['sprite'].value;
                     var p = e.components['p-pos'].value;
@@ -1281,8 +1307,11 @@ var GameScreen = (function (_super) {
                     ctx.drawImage(s, 0, 0, Game.T_S, Game.T_S, ~~((p.x - _this.c.p.x) * Game.T_S), ~~((p.y - _this.c.p.y) * Game.T_S), Game.T_S, Game.T_S);
                 });
                 ctx.globalAlpha = 0.7;
+                var pt = new Pt();
                 for (var x = this.c.p.x; x < this.c.p.x + this.c.s.w; x++) {
                     for (var y = this.c.p.y; y < this.c.p.y + this.c.s.h; y++) {
+                        pt.x = x;
+                        pt.y = y;
                         var t = Game.gd.l.m[x + (y * Game.gd.l.s.w)];
                         if (t & TMASK.W) {
                             ctx.fillStyle = "green";
@@ -1290,8 +1319,14 @@ var GameScreen = (function (_super) {
                         else {
                             ctx.fillStyle = "red";
                         }
-                        if (t & TMASK.O) {
+                        if (Game.gd.markerAt(pt)) {
+                            ctx.fillStyle = "yellow";
+                        }
+                        if (Game.gd.objectAt(pt)) {
                             ctx.fillStyle = "blue";
+                        }
+                        if (Game.gd.playerAt(pt)) {
+                            ctx.fillStyle = "orange";
                         }
                         ctx.fillRect((~~(x - this.c.p.x) * Game.T_S) + 2, (~~(y - this.c.p.y) * Game.T_S) + 2, 4, 4);
                     }
@@ -1409,6 +1444,7 @@ var MarkerMenu = (function (_super) {
             var i = Game.gd.getMarkerIndex(p);
             if (i !== undefined) {
                 delete Game.gd.m[i];
+                Game.gd.l.m[p.x + (p.y * Game.gd.l.s.w)] &= ~TMASK.M;
             }
             if (this.selectedIndex !== 5) {
                 var m = createMarker(this.selectedIndex === 4 ? 1 : 0, 90 * this.selectedIndex);
