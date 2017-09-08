@@ -23,11 +23,11 @@ class GameScreen extends GameState {
 
     transitionIn(): void {
         this.requestingClear = true;
-        super.transitionIn()
+        super.transitionIn();
     }
 
     transitionOut(): void {
-        super.transitionOut()
+        super.transitionOut();
     }
 
     update(delta: number): void {
@@ -50,27 +50,50 @@ class GameScreen extends GameState {
 
         Game.gd.l.update(delta, this.c);
 
-        for (let e in Game.gd.e) {
-            let ent = Game.gd.e[e].components;
-            
+        for (let e in Game.gd.p) {
+            let ent = Game.gd.p[e].components;
+            let pe = Game.gd.p[e];
+
             // ACTIVE MOVING PLAYER BLOCK
             if (ent['input'] && ent['input'].value && ent['t-move']) {
                 let tm = (<cTimer>ent['t-move']);
                 tm.cur += delta;
                 if (tm.cur >= tm.value) {
                     if (ent['p-move']) {
-                        if(input(Game.gd.e[e])) {
+                        if (input(pe)) {
                             tm.cur = 0;
-                            if (ent['p-pos'] && !collision(Game.gd.e[e], Game.gd.l)) {
+                            if (ent['p-pos'] && !collision(pe, Game.gd.l)) {
                                 if (ent['sprite']) {
-                                    animate(Game.gd.e[e]);
-                                }          
-                                if (movement(Game.gd.e[e])) {
+                                    animate(pe);
+                                }
+                                if (movement(pe)) {
                                     this.redraw = true;
                                     let p: Pt = ent['p-pos'].value;
                                     this.c.p.x = p.x - ~~(this.c.s.w / 2);
                                     this.c.p.y = p.y - ~~(this.c.s.h / 2);
-                                    if (ent['s-move']) {
+                                    
+                                    if (Game.gd.objectAt(p)) {
+                                        let o = Game.gd.getObjectAt(p);
+                                        switch (o.components['type'].value) {
+                                            case 'gold':
+                                                Game.i.ae.beep(new Beep(2500, 2500, 'square', 0.75, 1));
+                                                pickup(o);
+                                                break;
+                                            case 'chest':
+                                                Game.i.ae.beep(new Beep(635, 3, 'square', 0.1, 1));
+                                                pickup(o);
+                                                break;
+                                            case 'switch':
+                                                Game.i.ae.beep(new Beep(1900, 1, 'square', 0.1, 1));
+                                                activate(o);
+                                                break;
+                                            case 'exit':
+                                                exit(pe);
+                                                break;
+                                            default:
+                                                break;
+                                        }
+                                    } else if (ent['s-move']) {
                                         Game.i.ae.beep(ent['s-move'].value);
                                     }
                                 }
@@ -79,20 +102,19 @@ class GameScreen extends GameState {
                     }
                 }
             }
-            // Guiding Light Block
         }
 
         if (this.redraw) {
-            for (let e in Game.gd.e) {
-                let ent = Game.gd.e[e].components;
+            for (let e in Game.gd.p) {
+                let ent = Game.gd.p[e].components;
                 if (ent['light'] && ent['p-pos']) {
                     let l = (<Light>ent['light'].value);
                     l.p = ent['p-pos'].value;
                     l.calc(Game.gd.l.m, Game.gd.l.s);
                     Game.gd.lights.push(l);
                 }
-            }        
-            if(Game.gd.lights.length > 0)
+            }
+            if (Game.gd.lights.length > 0)
                 Game.gd.lm = Light.reLM(Game.gd.lights, Game.gd.l.s);
         }
 
@@ -109,7 +131,7 @@ class GameScreen extends GameState {
 
             /// DEBUG
             if (Game.gd.DEBUG) {
-                Game.gd.m.forEach((e) => {
+                Game.gd.m.forEach((e: GameEntity) => {
                     let s = <HTMLCanvasElement>e.components['sprite'].value;
                     let p = <Pt>e.components['p-pos'].value;
                     ctx.drawImage(s,
@@ -118,7 +140,7 @@ class GameScreen extends GameState {
                         ~~((p.x - this.c.p.x) * Game.T_S), ~~((p.y - this.c.p.y) * Game.T_S),
                         Game.T_S, Game.T_S);
                 });
-                Game.gd.o.forEach((e) => {
+                Game.gd.o.forEach((e: GameEntity) => {
                     let s = <HTMLCanvasElement>e.components['sprite'].value;
                     let p = <Pt>e.components['p-pos'].value;
                     ctx.drawImage(s,
@@ -127,7 +149,7 @@ class GameScreen extends GameState {
                         ~~((p.x - this.c.p.x) * Game.T_S), ~~((p.y - this.c.p.y) * Game.T_S),
                         Game.T_S, Game.T_S);
                 });
-                Game.gd.e.forEach((e) => {
+                Game.gd.p.forEach((e: GameEntity) => {
                     let s = <HTMLCanvasElement>e.components['sprite'].value;
                     let p = <Pt>e.components['p-pos'].value;
                     ctx.drawImage(s,
@@ -142,19 +164,19 @@ class GameScreen extends GameState {
                     for (var y = this.c.p.y; y < this.c.p.y + this.c.s.h; y++) {
                         pt.x = x;
                         pt.y = y;
-                        var t = Game.gd.l.m[x+(y*Game.gd.l.s.w)];
-                        if(t & TMASK.W) {
+                        var t = Game.gd.l.m[x + (y * Game.gd.l.s.w)];
+                        if (t & TMASK.W) {
                             ctx.fillStyle = "green";
                         } else {
                             ctx.fillStyle = "red";
                         }
-                        if(Game.gd.markerAt(pt)) {
+                        if (Game.gd.markerAt(pt)) {
                             ctx.fillStyle = "yellow";
                         }
-                        if(Game.gd.objectAt(pt)) {
+                        if (Game.gd.objectAt(pt)) {
                             ctx.fillStyle = "blue";
                         }
-                        if(Game.gd.playerAt(pt)) {
+                        if (Game.gd.playerAt(pt)) {
                             ctx.fillStyle = "orange";
                         }
                         ctx.fillRect((~~(x - this.c.p.x) * Game.T_S) + 2, (~~(y - this.c.p.y) * Game.T_S) + 2, 4, 4);
@@ -162,20 +184,20 @@ class GameScreen extends GameState {
                 }
                 ctx.globalAlpha = 1;
             } else {
-            /// END DEBUG
-                
+                /// END DEBUG
+
                 // DRAW MARKERS
-                Game.gd.m.forEach((e) => {
+                Game.gd.m.forEach((e: GameEntity) => {
                     drawEnt(ctx, e, this.c);
                 });
 
                 // DRAW OBJECTS
-                Game.gd.o.forEach((e) => {
+                Game.gd.o.forEach((e: GameEntity) => {
                     drawEnt(ctx, e, this.c);
                 });
 
                 // DRAW ENTITIES
-                Game.gd.e.forEach((e) => {
+                Game.gd.p.forEach((e: GameEntity) => {
                     drawEnt(ctx, e, this.c);
                 });
 

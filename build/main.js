@@ -466,6 +466,136 @@ var SSM;
     }
     SSM.spriteSheet = spriteSheet;
 })(SSM || (SSM = {}));
+var GameData = (function () {
+    function GameData() {
+        this.p = [];
+        this.m = [];
+        this.o = [];
+        this.lm = [];
+        this.lights = [];
+    }
+    GameData.prototype.buildObjBank = function (p, g) {
+        var seq = [0];
+        for (var i = 0; i < p; i++) {
+            seq.push(1);
+        }
+        for (var i = 0; i < g; i++) {
+            seq.push(2);
+        }
+        for (var i = 0; i < 50; i++) {
+            seq.push(3);
+        }
+        for (var i = 0; i < 25; i++) {
+            seq.push(4);
+        }
+        this.objectBank = randomized(seq, false);
+    };
+    GameData.prototype.addRandObj = function (o, s) {
+        var obj = parseInt(this.objectBank());
+        var p = new Pt(randomInt(o.x + 1, o.x + s.w - 2), randomInt(o.y + 1, o.y + s.h - 2));
+        if (obj !== undefined) {
+            switch (obj) {
+                case 0:
+                    this.addObject(createObject(0), p);
+                    break;
+                case 1:
+                    break;
+                case 2:
+                    this.addObject(createSwitch(), p);
+                    break;
+                case 3:
+                    this.addObject(createObject(1), p);
+                    break;
+                case 4:
+                    this.addObject(createObject(2), p);
+                    break;
+                default:
+                    this.addObject(createObject(2), p);
+                    break;
+            }
+        }
+        else {
+            this.addObject(createObject(2), p);
+        }
+    };
+    GameData.prototype.addEntity = function (entity, pos) {
+        entity.components["p-pos"].value = pos;
+        var i = pos.x + (pos.y * this.l.s.w);
+        this.l.m[i] |= TMASK.P;
+        var ind = this.p.push(entity);
+        this.l.m[i] |= ((ind) << 24);
+    };
+    GameData.prototype.addObject = function (entity, pos) {
+        entity.components["p-pos"].value = pos;
+        var i = pos.x + (pos.y * this.l.s.w);
+        this.l.m[i] |= TMASK.O;
+        var ind = this.o.push(entity);
+        this.l.m[i] |= ((ind) << 16);
+    };
+    GameData.prototype.addMarker = function (entity, pos) {
+        entity.components["p-pos"].value = pos;
+        var i = pos.x + (pos.y * this.l.s.w);
+        this.l.m[i] |= TMASK.M;
+        var ind = this.m.push(entity);
+        this.l.m[i] |= ((ind) << 8);
+    };
+    GameData.prototype.movePlayer = function (op, np) {
+        if (!this.l.m[op.x + (op.y * this.l.s.w)])
+            return;
+        var i = (this.l.m[op.x + (op.y * this.l.s.w)] >> 24) - 1;
+        this.l.m[op.x + (op.y * this.l.s.w)] &= ~(15 << 24);
+        this.l.m[op.x + (op.y * this.l.s.w)] &= ~TMASK.P;
+        if (this.l.m[np.x + (np.y * this.l.s.w)] == undefined)
+            this.l.m[np.x + (np.y * this.l.s.w)] = 0;
+        this.l.m[np.x + (np.y * this.l.s.w)] |= ((i + 1) << 24);
+        this.l.m[np.x + (np.y * this.l.s.w)] |= TMASK.P;
+    };
+    GameData.prototype.playerAt = function (p) {
+        return (this.l.m[p.x + (p.y * this.l.s.w)] & TMASK.P) !== 0;
+    };
+    GameData.prototype.objectAt = function (p) {
+        return (this.l.m[p.x + (p.y * this.l.s.w)] & TMASK.O) !== 0;
+    };
+    GameData.prototype.markerAt = function (p) {
+        return (this.l.m[p.x + (p.y * this.l.s.w)] & TMASK.M) !== 0;
+    };
+    GameData.prototype.getPlayerAt = function (p) {
+        if (this.playerAt(p)) {
+            var i = (this.l.m[p.x + (p.y * this.l.s.w)] >> 24) - 1;
+            return Game.gd.p[i];
+        }
+        return undefined;
+    };
+    GameData.prototype.getObjectAt = function (p) {
+        if (this.objectAt(p)) {
+            var i = ((this.l.m[p.x + (p.y * this.l.s.w)] & ~(15 << 24)) >> 16) - 1;
+            return Game.gd.o[i];
+        }
+        return undefined;
+    };
+    GameData.prototype.getMarkerAt = function (p) {
+        if (this.markerAt(p)) {
+            var i = ((this.l.m[p.x + (p.y * this.l.s.w)] & ~(4095 << 16)) >> 8) - 1;
+            return Game.gd.m[i];
+        }
+        return undefined;
+    };
+    GameData.prototype.getCurrPlayer = function () {
+        for (var i in this.p) {
+            if (this.p[i].components['input'] && this.p[i].components['input'].value === true) {
+                return this.p[i];
+            }
+        }
+        return undefined;
+    };
+    GameData.prototype.getMarkerIndex = function (p) {
+        if (this.markerAt(p)) {
+            return ((this.l.m[p.x + (p.y * this.l.s.w)] & ~(4095 << 16)) >> 8) - 1;
+        }
+        return undefined;
+    };
+    return GameData;
+}());
 var Camera = (function () {
     function Camera(p, s) {
         this.p = p;
@@ -583,6 +713,7 @@ function createSwitch() {
     p.addComponent(new cP('pos'));
     p.addComponent(new cFlag('state', false));
     p.addComponent(new cSprite(SSM.spriteSheet("guide").sprites[1]));
+    p.addComponent(new cTag('type', 'switch'));
     return p;
 }
 function createObject(s) {
@@ -590,138 +721,21 @@ function createObject(s) {
     p.addComponent(new cP('pos'));
     p.addComponent(new cSprite(SSM.spriteSheet("objects").sprites[s]));
     p.addComponent(new cSound('collide', new Beep(50, 5, 'sine', .25, 1)));
+    var t = (function (s) {
+        switch (s) {
+            case 0:
+                return 'exit';
+            case 1:
+                return 'chest';
+            case 2:
+                return 'gold';
+            default:
+                return 'unknown';
+        }
+    })(s);
+    p.addComponent(new cTag('type', t));
     return p;
 }
-var GameData = (function () {
-    function GameData() {
-        this.e = [];
-        this.m = [];
-        this.o = [];
-        this.lm = [];
-        this.lights = [];
-    }
-    GameData.prototype.buildObjBank = function (p, g) {
-        var seq = [0];
-        for (var i = 0; i < p; i++) {
-            seq.push(1);
-        }
-        for (var i = 0; i < g; i++) {
-            seq.push(2);
-        }
-        for (var i = 0; i < 50; i++) {
-            seq.push(3);
-        }
-        for (var i = 0; i < 25; i++) {
-            seq.push(4);
-        }
-        this.objectBank = randomized(seq, false);
-    };
-    GameData.prototype.addRandObj = function (o, s) {
-        var obj = parseInt(this.objectBank());
-        var p = new Pt(randomInt(o.x + 1, o.x + s.w - 2), randomInt(o.y + 1, o.y + s.h - 2));
-        if (obj !== undefined) {
-            switch (obj) {
-                case 0:
-                    this.addObject(createObject(0), p);
-                    break;
-                case 1:
-                    break;
-                case 2:
-                    this.addObject(createSwitch(), p);
-                    break;
-                case 3:
-                    this.addObject(createObject(1), p);
-                    break;
-                case 4:
-                    this.addObject(createObject(2), p);
-                    break;
-                default:
-                    this.addObject(createObject(2), p);
-                    break;
-            }
-        }
-        else {
-            this.addObject(createObject(2), p);
-        }
-    };
-    GameData.prototype.addEntity = function (entity, pos) {
-        entity.components["p-pos"].value = pos;
-        var i = pos.x + (pos.y * this.l.s.w);
-        this.l.m[i] |= TMASK.P;
-        var ind = this.e.push(entity);
-        this.l.m[i] |= ((ind) << 24);
-    };
-    GameData.prototype.addObject = function (entity, pos) {
-        entity.components["p-pos"].value = pos;
-        var i = pos.x + (pos.y * this.l.s.w);
-        this.l.m[i] |= TMASK.O;
-        var ind = this.o.push(entity);
-        this.l.m[i] |= ((ind) << 16);
-    };
-    GameData.prototype.addMarker = function (entity, pos) {
-        entity.components["p-pos"].value = pos;
-        var i = pos.x + (pos.y * this.l.s.w);
-        this.l.m[i] |= TMASK.M;
-        var ind = this.m.push(entity);
-        this.l.m[i] |= ((ind) << 8);
-    };
-    GameData.prototype.movePlayer = function (op, np) {
-        if (!this.l.m[op.x + (op.y * this.l.s.w)])
-            return;
-        var i = (this.l.m[op.x + (op.y * this.l.s.w)] >> 24) - 1;
-        this.l.m[op.x + (op.y * this.l.s.w)] &= ~(15 << 24);
-        this.l.m[op.x + (op.y * this.l.s.w)] &= ~TMASK.P;
-        if (this.l.m[np.x + (np.y * this.l.s.w)] == undefined)
-            this.l.m[np.x + (np.y * this.l.s.w)] = 0;
-        this.l.m[np.x + (np.y * this.l.s.w)] |= ((i + 1) << 24);
-        this.l.m[np.x + (np.y * this.l.s.w)] |= TMASK.P;
-    };
-    GameData.prototype.playerAt = function (p) {
-        return (this.l.m[p.x + (p.y * this.l.s.w)] & TMASK.P) !== 0;
-    };
-    GameData.prototype.objectAt = function (p) {
-        return (this.l.m[p.x + (p.y * this.l.s.w)] & TMASK.O) !== 0;
-    };
-    GameData.prototype.markerAt = function (p) {
-        return (this.l.m[p.x + (p.y * this.l.s.w)] & TMASK.M) !== 0;
-    };
-    GameData.prototype.getPlayerAt = function (p) {
-        if (this.playerAt(p)) {
-            var i = (this.l.m[p.x + (p.y * this.l.s.w)] >> 24) - 1;
-            return Game.gd.e[i];
-        }
-        return undefined;
-    };
-    GameData.prototype.getObjectAt = function (p) {
-        if (this.objectAt(p)) {
-            var i = ((this.l.m[p.x + (p.y * this.l.s.w)] & ~(15 << 24)) >> 16) - 1;
-            return Game.gd.o[i];
-        }
-        return undefined;
-    };
-    GameData.prototype.getMarkerAt = function (p) {
-        if (this.markerAt(p)) {
-            var i = ((this.l.m[p.x + (p.y * this.l.s.w)] & ~(4095 << 16)) >> 8) - 1;
-            return Game.gd.m[i];
-        }
-        return undefined;
-    };
-    GameData.prototype.getCurrPlayer = function () {
-        for (var i in this.e) {
-            if (this.e[i].components['input'] && this.e[i].components['input'].value === true) {
-                return this.e[i];
-            }
-        }
-        return undefined;
-    };
-    GameData.prototype.getMarkerIndex = function (p) {
-        if (this.markerAt(p)) {
-            return ((this.l.m[p.x + (p.y * this.l.s.w)] & ~(4095 << 16)) >> 8) - 1;
-        }
-        return undefined;
-    };
-    return GameData;
-}());
 var TMASK;
 (function (TMASK) {
     TMASK.W = 1;
@@ -1241,25 +1255,48 @@ var GameScreen = (function (_super) {
             this.redraw = true;
         }
         Game.gd.l.update(delta, this.c);
-        for (var e in Game.gd.e) {
-            var ent = Game.gd.e[e].components;
+        for (var e in Game.gd.p) {
+            var ent = Game.gd.p[e].components;
+            var pe = Game.gd.p[e];
             if (ent['input'] && ent['input'].value && ent['t-move']) {
                 var tm = ent['t-move'];
                 tm.cur += delta;
                 if (tm.cur >= tm.value) {
                     if (ent['p-move']) {
-                        if (input(Game.gd.e[e])) {
+                        if (input(pe)) {
                             tm.cur = 0;
-                            if (ent['p-pos'] && !collision(Game.gd.e[e], Game.gd.l)) {
+                            if (ent['p-pos'] && !collision(pe, Game.gd.l)) {
                                 if (ent['sprite']) {
-                                    animate(Game.gd.e[e]);
+                                    animate(pe);
                                 }
-                                if (movement(Game.gd.e[e])) {
+                                if (movement(pe)) {
                                     this.redraw = true;
                                     var p = ent['p-pos'].value;
                                     this.c.p.x = p.x - ~~(this.c.s.w / 2);
                                     this.c.p.y = p.y - ~~(this.c.s.h / 2);
-                                    if (ent['s-move']) {
+                                    if (Game.gd.objectAt(p)) {
+                                        var o = Game.gd.getObjectAt(p);
+                                        switch (o.components['type'].value) {
+                                            case 'gold':
+                                                Game.i.ae.beep(new Beep(2500, 2500, 'square', 0.75, 1));
+                                                pickup(o);
+                                                break;
+                                            case 'chest':
+                                                Game.i.ae.beep(new Beep(635, 3, 'square', 0.1, 1));
+                                                pickup(o);
+                                                break;
+                                            case 'switch':
+                                                Game.i.ae.beep(new Beep(1900, 1, 'square', 0.1, 1));
+                                                activate(o);
+                                                break;
+                                            case 'exit':
+                                                exit(pe);
+                                                break;
+                                            default:
+                                                break;
+                                        }
+                                    }
+                                    else if (ent['s-move']) {
                                         Game.i.ae.beep(ent['s-move'].value);
                                     }
                                 }
@@ -1270,8 +1307,8 @@ var GameScreen = (function (_super) {
             }
         }
         if (this.redraw) {
-            for (var e in Game.gd.e) {
-                var ent = Game.gd.e[e].components;
+            for (var e in Game.gd.p) {
+                var ent = Game.gd.p[e].components;
                 if (ent['light'] && ent['p-pos']) {
                     var l = ent['light'].value;
                     l.p = ent['p-pos'].value;
@@ -1301,7 +1338,7 @@ var GameScreen = (function (_super) {
                     var p = e.components['p-pos'].value;
                     ctx.drawImage(s, 0, 0, Game.T_S, Game.T_S, ~~((p.x - _this.c.p.x) * Game.T_S), ~~((p.y - _this.c.p.y) * Game.T_S), Game.T_S, Game.T_S);
                 });
-                Game.gd.e.forEach(function (e) {
+                Game.gd.p.forEach(function (e) {
                     var s = e.components['sprite'].value;
                     var p = e.components['p-pos'].value;
                     ctx.drawImage(s, 0, 0, Game.T_S, Game.T_S, ~~((p.x - _this.c.p.x) * Game.T_S), ~~((p.y - _this.c.p.y) * Game.T_S), Game.T_S, Game.T_S);
@@ -1340,7 +1377,7 @@ var GameScreen = (function (_super) {
                 Game.gd.o.forEach(function (e) {
                     drawEnt(ctx, e, _this.c);
                 });
-                Game.gd.e.forEach(function (e) {
+                Game.gd.p.forEach(function (e) {
                     drawEnt(ctx, e, _this.c);
                 });
                 if (Game.gd.lm.length > 0) {

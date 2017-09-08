@@ -1,10 +1,10 @@
 class GameData {
     /**
-     * @name Entities
+     * @name Players
      * @type {GameEntity[]}
      * @memberof GameData
      */
-    public e: GameEntity[] = [];
+    public p: GameEntity[] = [];
 
     /**
      * @name Markers
@@ -70,7 +70,7 @@ class GameData {
         (<cP>entity.components["p-pos"]).value = pos;
         var i = pos.x + (pos.y * this.l.s.w);
         this.l.m[i] |= TMASK.P;
-        var ind = this.e.push(entity);
+        var ind = this.p.push(entity);
         this.l.m[i] |= ((ind) << 24);
     }
 
@@ -144,7 +144,7 @@ class GameData {
     getPlayerAt(p: Pt): GameEntity {
         if(this.playerAt(p)) {
             var i = (this.l.m[p.x + (p.y * this.l.s.w)] >> 24) - 1;
-            return Game.gd.e[i];
+            return Game.gd.p[i];
         }
         return undefined;
     }
@@ -166,9 +166,9 @@ class GameData {
     }
 
     getCurrPlayer(): GameEntity {
-        for (var i in this.e) {
-            if (this.e[i].components['input'] && this.e[i].components['input'].value === true) {
-                return this.e[i];
+        for (var i in this.p) {
+            if (this.p[i].components['input'] && this.p[i].components['input'].value === true) {
+                return this.p[i];
             }
         }
         return undefined;

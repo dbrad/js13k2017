@@ -1,0 +1,13 @@
+Guiding Light Spawners
+Players Spawns
+Exit
+Treasure Objects
+
+4 player characters spawn on player spawns
+1, 2, 3, 4 Switch Players
+Pickup Treasure when touched, adds to loot / $$$ / score
+Remove Access to Player when stepping on Exit, go to next player (1->2->3->4->1, etc)
+Start Light Spawners when touched
+Lights with path in straight line to Exit.
+Text Log
+Status Bar (#of players left, # of markers left, current "score")
