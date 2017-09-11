@@ -186,7 +186,7 @@ class Level {
             this.r = false;
         }
         ctx.globalAlpha = 1;
-        if (Game.gd.DEBUG) {
+        /* if (Game.gd.DEBUG) {
             // DEBUG AREA
             ctx.drawImage(
                 this.rc,
@@ -195,13 +195,13 @@ class Level {
                 0, 0,
                 ~~(Game.T_W * Game.T_S), ~~(Game.T_H * Game.T_S));
             // END DEBUG AREA
-        } else {
-            ctx.drawImage(
-                this.rc,
-                ~~(c.p.x * Game.T_S), ~~(c.p.y * Game.T_S),
-                ~~(c.s.w * Game.T_S), ~~(c.s.h * Game.T_S),
-                0, 0,
-                ~~((c.s.w) * Game.T_S * 2), ~~((c.s.h) * Game.T_S * 2));
-        }
+        } else { */
+        ctx.drawImage(
+            this.rc,
+            ~~(c.p.x * Game.T_S), ~~(c.p.y * Game.T_S),
+            ~~(c.s.w * Game.T_S), ~~(c.s.h * Game.T_S),
+            0, 0,
+            ~~((c.s.w) * Game.T_S * 2), ~~((c.s.h) * Game.T_S * 2));
+        // }
     }
 }

@@ -1,13 +1,14 @@
 {
     "compilerOptions": {
         "module": "system",
-        "outFile": "build/main.js",
+        "outFile": "build/temp/main.js",
         "noImplicitAny": true,
         "removeComments": true,
         "target": "es5",
         "noEmitOnError": true
     },
     "filesGlob": [
+        
         "./**/*.ts",
         "./**/*.tsx",
         "!./node_modules/**/*"

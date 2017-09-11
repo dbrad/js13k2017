@@ -35,23 +35,16 @@ class GameData {
     public g: GameEntity[] = [];
 
     public l: Level;
-
     public lm: number[] = [];
-    
     public lights: Light[] = [];
-
-    public DEBUG: boolean;
-
+    //public DEBUG: boolean;
     public exit: GameEntity;
-
     private objectBank: Function;
-
     public score: number = 0;
-
+    public t_score: number = 0;
     public players: number = 0;
-    
     public markers: number = 0;
-
+    public message: Message;
     private P_OFF: number = 26;
     private O_OFF: number = 16;
     private M_OFF: number = 8;
@@ -127,13 +120,16 @@ class GameData {
                     break;
                 case 3: // chests
                     this.addObject(createObject(1), p);
+                    this.t_score += 100000;
                     break;
                 default: // also gold
                     this.addObject(createObject(2), p);
+                    this.t_score += 1000;                    
                     break;
             }
         } else {
             this.addObject(createObject(2), p);
+            this.t_score += 1000;                    
         }
     }
 
@@ -237,6 +233,7 @@ class GameData {
         // return this.l.m[p.x + (p.y*this.l.s.w)] && ((this.l.m[p.x + (p.y*this.l.s.w)] & ~(4095 << 16) ) >> 8) !== 0;
     }
 
+    /*
     getPlayerAt(p: Pt): GameEntity {
         if(this.playerAt(p)) {
             var i = (this.l.m[p.x + (p.y * this.l.s.w)] >> this.P_OFF) - 1;
@@ -244,6 +241,7 @@ class GameData {
         }
         return undefined;
     }
+    */
 
     getObjectAt(p: Pt): GameEntity {
         if(this.objectAt(p)) {
@@ -253,6 +251,7 @@ class GameData {
         return undefined;
     }
 
+    /*
     getMarkerAt(p: Pt): GameEntity {
         if(this.markerAt(p)) {
             var i = ((this.l.m[p.x + (p.y * this.l.s.w)] & ~(16383 << this.O_OFF) ) >> this.M_OFF) - 1;
@@ -260,7 +259,7 @@ class GameData {
         }
         return undefined;
     }
-
+    */
     getMarkerIndex(p: Pt): number {
         if(this.markerAt(p)) {
             return ((this.l.m[p.x + (p.y * this.l.s.w)] & ~(16383 << this.O_OFF) ) >> this.M_OFF) - 1;

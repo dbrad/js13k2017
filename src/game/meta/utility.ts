@@ -25,3 +25,7 @@ function shuffle(array: any[]): any[] {
     }
     return arr;
 }
+
+function isIn(p1: Pt, p2: Pt, p2d: Dm, pad: number) {
+    return (p1.x >= p2.x - pad && p1.x <= p2.x + p2d.w + pad && p1.y >= p2.y - 10 && p1.y <= p2.y + p2d.h + pad)
+}

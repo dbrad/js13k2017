@@ -1,2 +1,5 @@
-Status Bar (#of players left, # of markers left, current "score")
-End Game Screen
+Starting Flavour text
+Controls Pop-up
+End Game Screen / Flavour Text
+
+Menu beeps.

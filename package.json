@@ -2,7 +2,7 @@
   "name": "js13k2017",
   "version": "0.0.1",
   "description": "Entry for js13k 2017 competition",
-  "main" : "gulpfile.js",
+  "main": "gulpfile.js",
   "author": "David Brad",
   "repository": {
     "type": "git",
@@ -15,15 +15,16 @@
     "js13k"
   ],
   "dependencies": {
+    "express": "*",
     "gulp": "*",
+    "gulp-clean-css": "*",
+    "gulp-footer": "^1.0.5",
+    "gulp-header": "^1.8.9",
     "gulp-htmlmin": "*",
-    "gulp-zip": "*",
-    "gulp-clean-css" : "*",
-    "gulp-inline-base64": "*",
     "gulp-imagemin": "*",
+    "gulp-inline-base64": "*",
     "gulp-uglify": "*",
-    "express": "*"
+    "gulp-zip": "*"
   },
-
   "license": "MIT"
 }

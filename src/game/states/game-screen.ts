@@ -17,6 +17,7 @@ class GameScreen extends GameState {
 
     private mt: number = 0;
     update(delta: number): void {
+        /*
         // DEBUG
         if (Input.KB.wasDown(Input.KB.KEY.C)) {
             Game.gd.DEBUG = !Game.gd.DEBUG;
@@ -33,16 +34,17 @@ class GameScreen extends GameState {
             this.redraw = true;
         }
         // END DEBUG
-
-        if(Game.gd.p.length === 0) {
+        */
+        if (Game.gd.p.length === 0) {
             // END SCREEN.
         }
 
+        // Marker glow effect
         this.mt += delta;
-        if(this.mt >= 250) {
+        if (this.mt >= 250) {
             this.mt = 0;
             this.ma += this.md;
-            if(this.ma >= 1.0 || this.ma <= 0.55) {
+            if (this.ma >= 1.0 || this.ma <= 0.55) {
                 this.md *= -1;
             }
             this.redraw = true;
@@ -53,10 +55,11 @@ class GameScreen extends GameState {
             spawn(Game.gd.s[e]);
         }
 
+        // LOOP THROUGH PLAYERS
         for (let e in Game.gd.p) {
             let ent = Game.gd.p[e].components;
             let pe = Game.gd.p[e];
-            if(!Game.gd.getCurrPlayer()) {
+            if (!Game.gd.getCurrPlayer()) {
                 ent['input'].value = true;
                 let p = Pt.from(Game.gd.getCurrPlayer().components['p-pos'].value);
                 this.c.p.x = p.x - ~~(this.c.s.w / 2);
@@ -107,6 +110,7 @@ class GameScreen extends GameState {
                 }
             }
         }
+
         // LOOP THROUGH GUIDES
         for (let e in Game.gd.g) {
             let ent = Game.gd.g[e].components;
@@ -115,16 +119,17 @@ class GameScreen extends GameState {
             tm.cur += delta;
             if (tm.cur >= tm.value) {
                 tm.cur = 0;
-                guideMove(ge);   
-                this.redraw = true;             
+                guideMove(ge);
+                this.redraw = true;
             }
         }
 
+        // Update Lighting if we are re-drawing
         if (this.redraw) {
             Game.gd.lights.length = 0;
             for (let e in Game.gd.p) {
                 let ent = Game.gd.p[e].components;
-                if (ent['light'] && ent['p-pos']) { // only check lights that are +-10 around the camera?
+                if (ent['light'] && ent['p-pos'] && isIn(ent['p-pos'].value, this.c.p, this.c.s, 10)) {
                     let l = (<Light>ent['light'].value);
                     l.p = ent['p-pos'].value;
                     l.calc(Game.gd.l.m, Game.gd.l.s);
@@ -133,7 +138,7 @@ class GameScreen extends GameState {
             }
             for (let e in Game.gd.g) {
                 let ent = Game.gd.g[e].components;
-                if (ent['light'] && ent['p-pos']) {
+                if (ent['light'] && ent['p-pos'] && isIn(ent['p-pos'].value, this.c.p, this.c.s, 10)) {
                     let l = (<Light>ent['light'].value);
                     l.p = ent['p-pos'].value;
                     l.calc(Game.gd.l.m, Game.gd.l.s);
@@ -142,7 +147,7 @@ class GameScreen extends GameState {
             }
             for (let e in Game.gd.m) {
                 let ent = Game.gd.m[e].components;
-                if (ent['light'] && ent['p-pos']) {
+                if (ent['light'] && ent['p-pos'] && isIn(ent['p-pos'].value, this.c.p, this.c.s, 10)) {
                     let l = (<Light>ent['light'].value);
                     l.p = ent['p-pos'].value;
                     l.calc(Game.gd.l.m, Game.gd.l.s);
@@ -153,6 +158,7 @@ class GameScreen extends GameState {
                 Game.gd.lm = Light.reLM(Game.gd.lights, Game.gd.l.s);
         }
 
+        // OPEN MARKER MENU IF ACTION BUTTON PRESSED
         if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION))
             Game.i.e.gsm.push('marker-menu');
 
@@ -166,6 +172,7 @@ class GameScreen extends GameState {
             // DRAW LEVEL
             Game.gd.l.draw(ctx, this.c);
 
+            /*
             /// DEBUG
             if (Game.gd.DEBUG) {
                 Game.gd.m.forEach((e: GameEntity) => {
@@ -222,64 +229,65 @@ class GameScreen extends GameState {
                 ctx.globalAlpha = 1;
             } else {
                 /// END DEBUG
+                */
 
-                // DRAW MARKERS
-                ctx.globalAlpha = this.ma;
-                Game.gd.m.forEach((e: GameEntity) => {
-                    drawEnt(ctx, e, this.c);
-                });
-                ctx.globalAlpha = 1;
-                
-                // DRAW OBJECTS
-                Game.gd.o.forEach((e: GameEntity) => {
-                    drawEnt(ctx, e, this.c);
-                });
+            // DRAW MARKERS
+            ctx.globalAlpha = this.ma;
+            Game.gd.m.forEach((e: GameEntity) => {
+                drawEnt(ctx, e, this.c);
+            });
+            ctx.globalAlpha = 1;
 
-                // DRAW PLAYERS
-                Game.gd.p.forEach((e: GameEntity) => {
-                    drawEnt(ctx, e, this.c);
-                });
+            // DRAW OBJECTS
+            Game.gd.o.forEach((e: GameEntity) => {
+                drawEnt(ctx, e, this.c);
+            });
 
-                // DRAW GUIDES
-                ctx.globalAlpha = 0.3;
-                Game.gd.g.forEach((e: GameEntity) => {
-                    drawEnt(ctx, e, this.c);
-                });
-                ctx.globalAlpha = 1;
+            // DRAW PLAYERS
+            Game.gd.p.forEach((e: GameEntity) => {
+                drawEnt(ctx, e, this.c);
+            });
 
-                // DRAW STATUS BAR
-                {
-                    ctx.fillStyle = 'white';
-                    ctx.textAlign = 'left';
-                    ctx.font = '11px sans-serif';  
+            // DRAW GUIDES
+            ctx.globalAlpha = 0.3;
+            Game.gd.g.forEach((e: GameEntity) => {
+                drawEnt(ctx, e, this.c);
+            });
+            ctx.globalAlpha = 1;
 
-                    drawSpr(ctx, SSM.spriteSheet("marker").sprites[0], new Pt(0.5, 17.5), 2);
-                    drawSpr(ctx, SSM.spriteSheet("marker").sprites[1], new Pt(1.5, 17.5), 2);
-                    ctx.fillText(` x ${Game.gd.markers}`, Game.T_S * 4, Game.P_H - 2);
-                    let c: number = 0;
-                    for(let p in Game.gd.p) {
-                        drawSpr(ctx, SSM.spriteSheet("sprites").sprites[0], new Pt(4.5 + (1 * c), 17.5), 2);
-                        c++;
-                    }
-                    ctx.textAlign = 'right';                    
-                    ctx.fillText(`$${Game.gd.score.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`, Game.P_W - 2, Game.P_H - 2);
+            // DRAW STATUS BAR
+            {
+                ctx.fillStyle = 'white';
+                ctx.textAlign = 'left';
+                ctx.font = '11px sans-serif';
+
+                drawSpr(ctx, SSM.spriteSheet("marker").sprites[0], new Pt(0.5, 17.5), 2);
+                drawSpr(ctx, SSM.spriteSheet("marker").sprites[1], new Pt(1.5, 17.5), 2);
+                ctx.fillText(` x ${Game.gd.markers}`, Game.T_S * 4, Game.P_H - 4);
+                let c: number = 0;
+                for (let p in Game.gd.p) {
+                    drawSpr(ctx, SSM.spriteSheet("sprites").sprites[0], new Pt(4.5 + (1 * c), 17.5), 2);
+                    c++;
                 }
-
-                // DRAW LIGHT MAP
-                if (Game.gd.lm.length > 0) {
-                    ctx.fillStyle = "#0d0d0d";
-                    for (let x = this.c.p.x, rx = 0; x < this.c.p.x + this.c.s.w; x++) {
-                        for (let y = this.c.p.y, ry = 0; y < this.c.p.y + this.c.s.h; y++) {
-                            let val = Game.gd.lm[x + (y * Game.gd.l.s.h)];
-                            ctx.globalAlpha = (val ? val : 1);
-                            ctx.fillRect(rx * Game.T_S * 2, ry * Game.T_S * 2, Game.T_S * 2, Game.T_S * 2);
-                            ry++;
-                        }
-                        rx++;
-                    }
-                    ctx.globalAlpha = 1;
-                }
+                ctx.textAlign = 'right';
+                ctx.fillText(`$${Game.gd.score.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`, Game.P_W - 4, Game.P_H - 4);
             }
+
+            // DRAW LIGHT MAP
+            if (Game.gd.lm.length > 0) {
+                ctx.fillStyle = "#0d0d0d";
+                for (let x = this.c.p.x, rx = 0; x < this.c.p.x + this.c.s.w; x++) {
+                    for (let y = this.c.p.y, ry = 0; y < this.c.p.y + this.c.s.h; y++) {
+                        let val = Game.gd.lm[x + (y * Game.gd.l.s.h)];
+                        ctx.globalAlpha = (val ? val : 1);
+                        ctx.fillRect(rx * Game.T_S * 2, ry * Game.T_S * 2, Game.T_S * 2, Game.T_S * 2);
+                        ry++;
+                    }
+                    rx++;
+                }
+                ctx.globalAlpha = 1;
+            }
+            // }
         }
     }
 }

@@ -1,4 +1,3 @@
-window.onload=function(e){
 var __extends = (this && this.__extends) || (function () {
     var extendStatics = Object.setPrototypeOf ||
         ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
@@ -1763,4 +1762,3 @@ var MarkerMenu = (function (_super) {
     };
     return MarkerMenu;
 }(GameState));
-var audioCtx=new(window.AudioContext||window.webkitAudioContext)(); Game.i.init(window, document.getElementById('gameCanvas'), audioCtx);}
