@@ -1,24 +1,9 @@
 /// <reference path="../game.ts" />
-
+enum diff { EASY, NORMAL, HARD, VHARD };
 class GameScreen extends GameState {
     constructor() {
         super();
-        this.c = new Camera(new Pt(), new Dm(32, 14));
-        Game.gd.buildObjBank(4, 8);
-        Game.gd.l = new Level(new Dm(250, 250));
-        Game.gd.l.generate();
-        {
-            let p = createPlayer();
-            Game.gd.addEntity(p, new Pt(10, 10));
-        }
-        {
-            let p = createPlayer();
-            p.components['input'].value = true;
-            Game.gd.addEntity(p, new Pt(11, 10));
-        }
-        let p = Pt.from(Game.gd.getCurrPlayer().components['p-pos'].value);
-        this.c.p.x = p.x - ~~(this.c.s.w / 2);
-        this.c.p.y = p.y - ~~(this.c.s.h / 2);
+        this.c = new Camera(new Pt(), new Dm(32, 17));
     }
 
     transitionIn(): void {
@@ -30,6 +15,7 @@ class GameScreen extends GameState {
         super.transitionOut();
     }
 
+    private mt: number = 0;
     update(delta: number): void {
         // DEBUG
         if (Input.KB.wasDown(Input.KB.KEY.C)) {
@@ -39,7 +25,7 @@ class GameScreen extends GameState {
                 this.c.s.h = Game.T_H;
             } else {
                 this.c.s.w = 32;
-                this.c.s.h = 14;
+                this.c.s.h = 17;
             }
             let p = Pt.from(Game.gd.getCurrPlayer().components['p-pos'].value);
             this.c.p.x = p.x - ~~(this.c.s.w / 2);
@@ -48,54 +34,72 @@ class GameScreen extends GameState {
         }
         // END DEBUG
 
-        Game.gd.l.update(delta, this.c);
+        if(Game.gd.p.length === 0) {
+            // END SCREEN.
+        }
+
+        this.mt += delta;
+        if(this.mt >= 250) {
+            this.mt = 0;
+            this.ma += this.md;
+            if(this.ma >= 1.0 || this.ma <= 0.55) {
+                this.md *= -1;
+            }
+            this.redraw = true;
+        }
+
+        // LOOP THROUGH SPAWNERS
+        for (let e in Game.gd.s) {
+            spawn(Game.gd.s[e]);
+        }
 
         for (let e in Game.gd.p) {
             let ent = Game.gd.p[e].components;
             let pe = Game.gd.p[e];
+            if(!Game.gd.getCurrPlayer()) {
+                ent['input'].value = true;
+                let p = Pt.from(Game.gd.getCurrPlayer().components['p-pos'].value);
+                this.c.p.x = p.x - ~~(this.c.s.w / 2);
+                this.c.p.y = p.y - ~~(this.c.s.h / 2);
+            }
 
             // ACTIVE MOVING PLAYER BLOCK
             if (ent['input'] && ent['input'].value && ent['t-move']) {
                 let tm = (<cTimer>ent['t-move']);
                 tm.cur += delta;
                 if (tm.cur >= tm.value) {
-                    if (ent['p-move']) {
-                        if (input(pe)) {
-                            tm.cur = 0;
-                            if (ent['p-pos'] && !collision(pe, Game.gd.l)) {
-                                if (ent['sprite']) {
-                                    animate(pe);
-                                }
-                                if (movement(pe)) {
-                                    this.redraw = true;
-                                    let p: Pt = ent['p-pos'].value;
-                                    this.c.p.x = p.x - ~~(this.c.s.w / 2);
-                                    this.c.p.y = p.y - ~~(this.c.s.h / 2);
-                                    
-                                    if (Game.gd.objectAt(p)) {
-                                        let o = Game.gd.getObjectAt(p);
-                                        switch (o.components['type'].value) {
-                                            case 'gold':
-                                                Game.i.ae.beep(new Beep(2500, 2500, 'square', 0.75, 1));
-                                                pickup(o);
-                                                break;
-                                            case 'chest':
-                                                Game.i.ae.beep(new Beep(635, 3, 'square', 0.1, 1));
-                                                pickup(o);
-                                                break;
-                                            case 'switch':
-                                                Game.i.ae.beep(new Beep(1900, 1, 'square', 0.1, 1));
-                                                activate(o);
-                                                break;
-                                            case 'exit':
-                                                exit(pe);
-                                                break;
-                                            default:
-                                                break;
-                                        }
-                                    } else if (ent['s-move']) {
-                                        Game.i.ae.beep(ent['s-move'].value);
+                    if (ent['p-move'] && input(pe)) {
+                        tm.cur = 0;
+                        if (ent['p-pos'] && !collision(pe, Game.gd.l)) {
+                            ent['sprite'] && animate(pe);
+                            if (movement(pe)) {
+                                this.redraw = true;
+                                let p: Pt = ent['p-pos'].value;
+                                this.c.p.x = p.x - ~~(this.c.s.w / 2);
+                                this.c.p.y = p.y - ~~(this.c.s.h / 2);
+
+                                if (Game.gd.objectAt(p)) {
+                                    let o = Game.gd.getObjectAt(p);
+                                    switch (o.components['type'].value) {
+                                        case 'gold':
+                                            Game.i.ae.beep(new Beep(2500, 2500, 'square', 0.75, 1));
+                                            pickup(o);
+                                            break;
+                                        case 'chest':
+                                            Game.i.ae.beep(new Beep(635, 3, 'square', 0.1, 1));
+                                            pickup(o);
+                                            break;
+                                        case 'switch':
+                                            activate(o);
+                                            break;
+                                        case 'exit':
+                                            exit(pe);
+                                            break;
+                                        default:
+                                            break;
                                     }
+                                } else if (ent['s-move']) {
+                                    Game.i.ae.beep(ent['s-move'].value);
                                 }
                             }
                         }
@@ -103,10 +107,41 @@ class GameScreen extends GameState {
                 }
             }
         }
+        // LOOP THROUGH GUIDES
+        for (let e in Game.gd.g) {
+            let ent = Game.gd.g[e].components;
+            let ge = Game.gd.g[e];
+            let tm = (<cTimer>ent['t-move']);
+            tm.cur += delta;
+            if (tm.cur >= tm.value) {
+                tm.cur = 0;
+                guideMove(ge);   
+                this.redraw = true;             
+            }
+        }
 
         if (this.redraw) {
+            Game.gd.lights.length = 0;
             for (let e in Game.gd.p) {
                 let ent = Game.gd.p[e].components;
+                if (ent['light'] && ent['p-pos']) { // only check lights that are +-10 around the camera?
+                    let l = (<Light>ent['light'].value);
+                    l.p = ent['p-pos'].value;
+                    l.calc(Game.gd.l.m, Game.gd.l.s);
+                    Game.gd.lights.push(l);
+                }
+            }
+            for (let e in Game.gd.g) {
+                let ent = Game.gd.g[e].components;
+                if (ent['light'] && ent['p-pos']) {
+                    let l = (<Light>ent['light'].value);
+                    l.p = ent['p-pos'].value;
+                    l.calc(Game.gd.l.m, Game.gd.l.s);
+                    Game.gd.lights.push(l);
+                }
+            }
+            for (let e in Game.gd.m) {
+                let ent = Game.gd.m[e].components;
                 if (ent['light'] && ent['p-pos']) {
                     let l = (<Light>ent['light'].value);
                     l.p = ent['p-pos'].value;
@@ -124,6 +159,8 @@ class GameScreen extends GameState {
         this.requestingClear = this.redraw;
     }
     private c: Camera;
+    private ma: number = 1;
+    private md: number = -0.15;
     draw(ctx: Context2D): void {
         if (this.redraw) {
             // DRAW LEVEL
@@ -187,19 +224,46 @@ class GameScreen extends GameState {
                 /// END DEBUG
 
                 // DRAW MARKERS
+                ctx.globalAlpha = this.ma;
                 Game.gd.m.forEach((e: GameEntity) => {
                     drawEnt(ctx, e, this.c);
                 });
-
+                ctx.globalAlpha = 1;
+                
                 // DRAW OBJECTS
                 Game.gd.o.forEach((e: GameEntity) => {
                     drawEnt(ctx, e, this.c);
                 });
 
-                // DRAW ENTITIES
+                // DRAW PLAYERS
                 Game.gd.p.forEach((e: GameEntity) => {
                     drawEnt(ctx, e, this.c);
                 });
+
+                // DRAW GUIDES
+                ctx.globalAlpha = 0.3;
+                Game.gd.g.forEach((e: GameEntity) => {
+                    drawEnt(ctx, e, this.c);
+                });
+                ctx.globalAlpha = 1;
+
+                // DRAW STATUS BAR
+                {
+                    ctx.fillStyle = 'white';
+                    ctx.textAlign = 'left';
+                    ctx.font = '11px sans-serif';  
+
+                    drawSpr(ctx, SSM.spriteSheet("marker").sprites[0], new Pt(0.5, 17.5), 2);
+                    drawSpr(ctx, SSM.spriteSheet("marker").sprites[1], new Pt(1.5, 17.5), 2);
+                    ctx.fillText(` x ${Game.gd.markers}`, Game.T_S * 4, Game.P_H - 2);
+                    let c: number = 0;
+                    for(let p in Game.gd.p) {
+                        drawSpr(ctx, SSM.spriteSheet("sprites").sprites[0], new Pt(4.5 + (1 * c), 17.5), 2);
+                        c++;
+                    }
+                    ctx.textAlign = 'right';                    
+                    ctx.fillText(`$${Game.gd.score.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`, Game.P_W - 2, Game.P_H - 2);
+                }
 
                 // DRAW LIGHT MAP
                 if (Game.gd.lm.length > 0) {

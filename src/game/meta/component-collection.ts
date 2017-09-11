@@ -2,23 +2,10 @@
 /// <reference path="../../engine/types/dimension.ts" />
 /// <reference path="../../engine/types/point.ts" />
 
-class cAABB extends Component<Dm> {
-	constructor({ w = 0, h = 0 }) {
-		super('aabb');
-		this.value = new Dm(w, h);
-	}
-}
-
 class cP extends Component<Pt> {
 	constructor(name: string, p: Pt = new Pt()) {
 		super('p-' + name);
 		this.value = p;
-	}
-}
-class cStyle extends Component<string> {
-	constructor(colour: string) {
-		super('style');
-		this.value = colour;
 	}
 }
 

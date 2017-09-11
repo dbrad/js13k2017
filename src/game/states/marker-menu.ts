@@ -28,11 +28,13 @@ class MarkerMenu extends GameState {
             let i = Game.gd.getMarkerIndex(p);
             if (i !== undefined) {
                 delete Game.gd.m[i];
-                Game.gd.l.m[p.x+(p.y*Game.gd.l.s.w)] &= ~TMASK.M;
+                Game.gd.removeMarker(p);
+                Game.gd.markers += 1;
             }
-            if (this.selectedIndex !== 5) {
+            if (this.selectedIndex !== 5 && Game.gd.markers > 0) {
                 let m = createMarker(this.selectedIndex === 4 ? 1 : 0, 90 * this.selectedIndex);
                 Game.gd.addMarker(m, p);
+                Game.gd.markers -= 1;                
             }
             Game.i.e.gsm.pop();
         }
@@ -70,11 +72,10 @@ class MarkerMenu extends GameState {
             ctx.textAlign = "left";
             ctx.fillStyle = ctx.strokeStyle = "#FFFFFF";
             ctx.fillText(
-                `CLEAR`,
-                ~~(39 * Game.T_S),
+                `PICKUP`,
+                ~~(39 * Game.T_S) + 4,
                 ~~(18.5 * Game.T_S));
 
-            ctx.font = "11px sans-serif";
             ctx.textAlign = "center";
             ctx.fillStyle = ctx.strokeStyle = "#FFFFFF";
             ctx.fillText(

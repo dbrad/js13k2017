@@ -22,19 +22,59 @@ function input(e: GameEntity): boolean {
 }
 
 function exit(e: GameEntity) {
-    
+    var i = Game.gd.p.indexOf(e);
+    if (i !== -1) {
+        Game.gd.removePlayer(Pt.from(e.components['p-pos'].value));
+        delete Game.gd.p[i];
+        Game.gd.players -= 1;
+    }
 }
 
 function activate(e: GameEntity) {
-
+    let ec = e.components;
+    if (ec['active'] && ec['active'].value === false) {
+        ec['active'].value = true;
+        ec['sprite'].value = SSM.spriteSheet("guide").sprites[2];
+        Game.i.ae.beep(ec['s-interact'].value);
+        Game.gd.addSpawner(createSpawner('guide'), Pt.from(ec['p-pos'].value));
+    }
 }
 
 function spawn(e: GameEntity) {
-
+    let ec = e.components;
+    let p = Pt.from(ec['p-pos'].value);
+    switch (ec['type'].value) {
+        case 'player':
+            Game.gd.addPlayer(createPlayer(), p);
+            break;
+        case 'guide':
+            Game.gd.addGuide(createGuidingLight(), p);
+            break;
+        default:
+            break;
+    }
+    var i = Game.gd.s.indexOf(e);
+    if (i !== -1) {
+        delete Game.gd.s[i];
+    }
 }
 
 function pickup(e: GameEntity) {
-
+    var i = Game.gd.o.indexOf(e);
+    if (i !== -1) {
+        Game.gd.removeObject(Pt.from(e.components['p-pos'].value));
+        delete Game.gd.o[i];
+        switch (e.components['type'].value) {
+            case "chest":
+                Game.gd.score += 100000;
+                break;
+            case "gold":
+                Game.gd.score += 1000;
+                break;
+            default:
+                break;
+        }
+    }
 }
 
 function collision(e: GameEntity, l: Level): boolean {
@@ -85,11 +125,35 @@ function movement(e: GameEntity): boolean {
     return false;
 }
 
+function guideMove(e: GameEntity): void {
+    let ec = e.components;
+    var ep = Game.gd.exit.components['p-pos'].value;
+    var gp = ec['p-pos'].value;
+    var dx = ep.x - gp.x;
+    var dy = ep.y - gp.y;
+    var adx = Math.abs(dx);
+    var ady = Math.abs(dy);
+    if (dx == 0 && dy == 0) {
+        ec['p-pos'].value = Pt.from(ec['p-origin'].value);
+    } else if (adx !== 0 && ady !== 0) {
+        gp.x += dx > 0 ? 1 : -1;
+        gp.y += dy > 0 ? 1 : -1;
+    } else if (adx !== 0) {
+        gp.x += dx > 0 ? 1 : -1;
+    } else if (ady !== 0) {
+        gp.y += dy > 0 ? 1 : -1;
+    }
+    let s = (<cSprite>ec['sprite']);
+    s.r += 15;
+    if (s.r == 360)
+        s.r = 0;
+}
+
 function drawEnt(ctx: Context2D, e: GameEntity, c: Camera): void {
-    let sp = <cSprite>e.components['sprite'];
-    let s = sp.value;
     let p = <Pt>e.components['p-pos'].value;
-    if (p.x > 0 && p.x < (c.p.x + c.s.w) && p.y > 0 && p.y < (c.p.y + c.s.h)) {
+    if (p.x >= c.p.x && p.x < (c.p.x + c.s.w) && p.y >= c.p.y && p.y < (c.p.y + c.s.h)) {
+        let sp = <cSprite>e.components['sprite'];
+        let s = sp.value;
         ctx.save();
         ctx.translate(~~((p.x - c.p.x) * Game.T_S * 2) + Game.T_S, ~~((p.y - c.p.y) * Game.T_S * 2) + Game.T_S);
         ctx.rotate(sp.r * Math.PI / 180);

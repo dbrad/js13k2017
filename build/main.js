@@ -471,21 +471,73 @@ var GameData = (function () {
         this.p = [];
         this.m = [];
         this.o = [];
+        this.s = [];
+        this.g = [];
         this.lm = [];
         this.lights = [];
+        this.score = 0;
+        this.players = 0;
+        this.markers = 0;
+        this.P_OFF = 26;
+        this.O_OFF = 16;
+        this.M_OFF = 8;
     }
-    GameData.prototype.buildObjBank = function (p, g) {
+    GameData.prototype.setupGame = function (d) {
+        var p;
+        var g;
+        var s;
+        switch (d) {
+            case diff.EASY:
+                p = 2;
+                g = 2;
+                this.markers = 10;
+                s = new Dm(100, 100);
+                break;
+            case diff.NORMAL:
+                p = 2;
+                g = 4;
+                this.markers = 25;
+                s = new Dm(175, 175);
+                break;
+            case diff.HARD:
+                p = 4;
+                g = 8;
+                this.markers = 50;
+                s = new Dm(250, 250);
+                break;
+            case diff.VHARD:
+                p = 8;
+                g = 16;
+                this.markers = 100;
+                s = new Dm(500, 500);
+                break;
+            default:
+                p = 1;
+                g = 2;
+                this.markers = 10;
+                s = new Dm(50, 50);
+        }
+        this.players = p;
+        this.p.length = this.o.length = this.m.length = this.g.length = this.s.length = 0;
+        this.buildObjBank(p, g, s);
+        this.l = new Level(s);
+        this.l.generate();
+    };
+    GameData.prototype.buildObjBank = function (p, g, s) {
         var seq = [0];
+        var tot = ~~(s.w * s.h * 0.001);
+        var t = ~~((tot - p - g) * .25);
+        var m = ~~(tot - p - g - t);
         for (var i = 0; i < p; i++) {
             seq.push(1);
         }
         for (var i = 0; i < g; i++) {
             seq.push(2);
         }
-        for (var i = 0; i < 50; i++) {
+        for (var i = 0; i < t; i++) {
             seq.push(3);
         }
-        for (var i = 0; i < 25; i++) {
+        for (var i = 0; i < m; i++) {
             seq.push(4);
         }
         this.objectBank = randomized(seq, false);
@@ -496,18 +548,17 @@ var GameData = (function () {
         if (obj !== undefined) {
             switch (obj) {
                 case 0:
-                    this.addObject(createObject(0), p);
+                    this.exit = createObject(0);
+                    this.addObject(this.exit, p);
                     break;
                 case 1:
+                    this.addSpawner(createSpawner('player'), p);
                     break;
                 case 2:
                     this.addObject(createSwitch(), p);
                     break;
                 case 3:
                     this.addObject(createObject(1), p);
-                    break;
-                case 4:
-                    this.addObject(createObject(2), p);
                     break;
                 default:
                     this.addObject(createObject(2), p);
@@ -518,37 +569,57 @@ var GameData = (function () {
             this.addObject(createObject(2), p);
         }
     };
-    GameData.prototype.addEntity = function (entity, pos) {
-        entity.components["p-pos"].value = pos;
+    GameData.prototype.addGuide = function (e, pos) {
+        e.components["p-pos"].value = pos;
+        e.components["p-origin"].value = Pt.from(pos);
+        this.g.push(e);
+    };
+    GameData.prototype.addSpawner = function (e, pos) {
+        e.components["p-pos"].value = pos;
+        this.s.push(e);
+    };
+    GameData.prototype.addPlayer = function (e, pos) {
+        e.components["p-pos"].value = pos;
         var i = pos.x + (pos.y * this.l.s.w);
         this.l.m[i] |= TMASK.P;
-        var ind = this.p.push(entity);
-        this.l.m[i] |= ((ind) << 24);
+        var ind = this.p.push(e);
+        this.l.m[i] |= ((ind) << this.P_OFF);
     };
-    GameData.prototype.addObject = function (entity, pos) {
-        entity.components["p-pos"].value = pos;
+    GameData.prototype.addObject = function (e, pos) {
+        e.components["p-pos"].value = pos;
         var i = pos.x + (pos.y * this.l.s.w);
         this.l.m[i] |= TMASK.O;
-        var ind = this.o.push(entity);
-        this.l.m[i] |= ((ind) << 16);
+        var ind = this.o.push(e);
+        this.l.m[i] |= ((ind) << this.O_OFF);
     };
-    GameData.prototype.addMarker = function (entity, pos) {
-        entity.components["p-pos"].value = pos;
+    GameData.prototype.addMarker = function (e, pos) {
+        e.components["p-pos"].value = pos;
         var i = pos.x + (pos.y * this.l.s.w);
         this.l.m[i] |= TMASK.M;
-        var ind = this.m.push(entity);
-        this.l.m[i] |= ((ind) << 8);
+        var ind = this.m.push(e);
+        this.l.m[i] |= ((ind) << this.M_OFF);
     };
     GameData.prototype.movePlayer = function (op, np) {
         if (!this.l.m[op.x + (op.y * this.l.s.w)])
             return;
-        var i = (this.l.m[op.x + (op.y * this.l.s.w)] >> 24) - 1;
-        this.l.m[op.x + (op.y * this.l.s.w)] &= ~(15 << 24);
-        this.l.m[op.x + (op.y * this.l.s.w)] &= ~TMASK.P;
+        var i = (this.l.m[op.x + (op.y * this.l.s.w)] >> this.P_OFF) - 1;
+        this.removePlayer(op);
         if (this.l.m[np.x + (np.y * this.l.s.w)] == undefined)
             this.l.m[np.x + (np.y * this.l.s.w)] = 0;
-        this.l.m[np.x + (np.y * this.l.s.w)] |= ((i + 1) << 24);
+        this.l.m[np.x + (np.y * this.l.s.w)] |= ((i + 1) << this.P_OFF);
         this.l.m[np.x + (np.y * this.l.s.w)] |= TMASK.P;
+    };
+    GameData.prototype.removePlayer = function (p) {
+        this.l.m[p.x + (p.y * this.l.s.w)] &= ~(15 << this.P_OFF);
+        this.l.m[p.x + (p.y * this.l.s.w)] &= ~(TMASK.P);
+    };
+    GameData.prototype.removeMarker = function (p) {
+        this.l.m[p.x + (p.y * this.l.s.w)] &= ~(255 << this.M_OFF);
+        this.l.m[p.x + (p.y * this.l.s.w)] &= ~(TMASK.M);
+    };
+    GameData.prototype.removeObject = function (p) {
+        this.l.m[p.x + (p.y * this.l.s.w)] &= ~(1023 << this.O_OFF);
+        this.l.m[p.x + (p.y * this.l.s.w)] &= ~(TMASK.O);
     };
     GameData.prototype.playerAt = function (p) {
         return (this.l.m[p.x + (p.y * this.l.s.w)] & TMASK.P) !== 0;
@@ -561,22 +632,28 @@ var GameData = (function () {
     };
     GameData.prototype.getPlayerAt = function (p) {
         if (this.playerAt(p)) {
-            var i = (this.l.m[p.x + (p.y * this.l.s.w)] >> 24) - 1;
+            var i = (this.l.m[p.x + (p.y * this.l.s.w)] >> this.P_OFF) - 1;
             return Game.gd.p[i];
         }
         return undefined;
     };
     GameData.prototype.getObjectAt = function (p) {
         if (this.objectAt(p)) {
-            var i = ((this.l.m[p.x + (p.y * this.l.s.w)] & ~(15 << 24)) >> 16) - 1;
+            var i = ((this.l.m[p.x + (p.y * this.l.s.w)] & ~(15 << this.P_OFF)) >> this.O_OFF) - 1;
             return Game.gd.o[i];
         }
         return undefined;
     };
     GameData.prototype.getMarkerAt = function (p) {
         if (this.markerAt(p)) {
-            var i = ((this.l.m[p.x + (p.y * this.l.s.w)] & ~(4095 << 16)) >> 8) - 1;
+            var i = ((this.l.m[p.x + (p.y * this.l.s.w)] & ~(16383 << this.O_OFF)) >> this.M_OFF) - 1;
             return Game.gd.m[i];
+        }
+        return undefined;
+    };
+    GameData.prototype.getMarkerIndex = function (p) {
+        if (this.markerAt(p)) {
+            return ((this.l.m[p.x + (p.y * this.l.s.w)] & ~(16383 << this.O_OFF)) >> this.M_OFF) - 1;
         }
         return undefined;
     };
@@ -585,12 +662,6 @@ var GameData = (function () {
             if (this.p[i].components['input'] && this.p[i].components['input'].value === true) {
                 return this.p[i];
             }
-        }
-        return undefined;
-    };
-    GameData.prototype.getMarkerIndex = function (p) {
-        if (this.markerAt(p)) {
-            return ((this.l.m[p.x + (p.y * this.l.s.w)] & ~(4095 << 16)) >> 8) - 1;
         }
         return undefined;
     };
@@ -603,16 +674,6 @@ var Camera = (function () {
     }
     return Camera;
 }());
-var cAABB = (function (_super) {
-    __extends(cAABB, _super);
-    function cAABB(_a) {
-        var _b = _a.w, w = _b === void 0 ? 0 : _b, _c = _a.h, h = _c === void 0 ? 0 : _c;
-        var _this = _super.call(this, 'aabb') || this;
-        _this.value = new Dm(w, h);
-        return _this;
-    }
-    return cAABB;
-}(Component));
 var cP = (function (_super) {
     __extends(cP, _super);
     function cP(name, p) {
@@ -622,15 +683,6 @@ var cP = (function (_super) {
         return _this;
     }
     return cP;
-}(Component));
-var cStyle = (function (_super) {
-    __extends(cStyle, _super);
-    function cStyle(colour) {
-        var _this = _super.call(this, 'style') || this;
-        _this.value = colour;
-        return _this;
-    }
-    return cStyle;
 }(Component));
 var cSprite = (function (_super) {
     __extends(cSprite, _super);
@@ -693,10 +745,19 @@ function createPlayer() {
     p.addComponent(new cP('pos'));
     p.addComponent(new cP('move'));
     p.addComponent(new cSound('move', new Beep(50, 5, 'sine', .25, 1)));
-    p.addComponent(new cTimer('move', 150));
-    p.addComponent(new cLight(new Light(new Pt(), 0.85)));
+    p.addComponent(new cTimer('move', 125));
+    p.addComponent(new cLight(new Light(new Pt(), 0.75, 5)));
     p.addComponent(new cFlag('input', false));
     p.addComponent(new cSprite(SSM.spriteSheet("sprites").sprites[0]));
+    return p;
+}
+function createGuidingLight() {
+    var p = new GameEntity();
+    p.addComponent(new cP('pos'));
+    p.addComponent(new cP('origin'));
+    p.addComponent(new cTimer('move', 150));
+    p.addComponent(new cLight(new Light(new Pt(), 0.35, 7)));
+    p.addComponent(new cSprite(SSM.spriteSheet("guide").sprites[0]));
     return p;
 }
 function createMarker(t, r) {
@@ -704,16 +765,25 @@ function createMarker(t, r) {
     var p = new GameEntity();
     p.addComponent(new cP('pos'));
     var s = new cSprite(SSM.spriteSheet("marker").sprites[t]);
+    p.addComponent(new cLight(new Light(new Pt(), 0.15, 4)));
     s.r = r;
     p.addComponent(s);
+    return p;
+}
+function createSpawner(t) {
+    var p = new GameEntity();
+    p.addComponent(new cP('pos'));
+    p.addComponent(new cTag('type', t));
+    p.addComponent(new cFlag('done', false));
     return p;
 }
 function createSwitch() {
     var p = new GameEntity();
     p.addComponent(new cP('pos'));
-    p.addComponent(new cFlag('state', false));
+    p.addComponent(new cFlag('active', false));
     p.addComponent(new cSprite(SSM.spriteSheet("guide").sprites[1]));
     p.addComponent(new cTag('type', 'switch'));
+    p.addComponent(new cSound('interact', new Beep(1900, 1, 'square', 0.1, 1)));
     return p;
 }
 function createObject(s) {
@@ -873,7 +943,6 @@ var Level = (function () {
             }
         }
     };
-    Level.prototype.update = function (delta, c) { };
     Level.prototype.render = function (ctx) {
         var _this = this;
         var tn = randomized([0, 1, 1, 2]);
@@ -918,10 +987,10 @@ var Level = (function () {
     return Level;
 }());
 var Light = (function () {
-    function Light(p, i) {
+    function Light(p, i, r) {
         this.p = p;
         this.i = i;
-        this.r = 8;
+        this.r = r;
     }
     Light.prototype.calc = function (m, s) {
         this.a = [];
@@ -1102,12 +1171,56 @@ function input(e) {
     return r;
 }
 function exit(e) {
+    var i = Game.gd.p.indexOf(e);
+    if (i !== -1) {
+        Game.gd.removePlayer(Pt.from(e.components['p-pos'].value));
+        delete Game.gd.p[i];
+        Game.gd.players -= 1;
+    }
 }
 function activate(e) {
+    var ec = e.components;
+    if (ec['active'] && ec['active'].value === false) {
+        ec['active'].value = true;
+        ec['sprite'].value = SSM.spriteSheet("guide").sprites[2];
+        Game.i.ae.beep(ec['s-interact'].value);
+        Game.gd.addSpawner(createSpawner('guide'), Pt.from(ec['p-pos'].value));
+    }
 }
 function spawn(e) {
+    var ec = e.components;
+    var p = Pt.from(ec['p-pos'].value);
+    switch (ec['type'].value) {
+        case 'player':
+            Game.gd.addPlayer(createPlayer(), p);
+            break;
+        case 'guide':
+            Game.gd.addGuide(createGuidingLight(), p);
+            break;
+        default:
+            break;
+    }
+    var i = Game.gd.s.indexOf(e);
+    if (i !== -1) {
+        delete Game.gd.s[i];
+    }
 }
 function pickup(e) {
+    var i = Game.gd.o.indexOf(e);
+    if (i !== -1) {
+        Game.gd.removeObject(Pt.from(e.components['p-pos'].value));
+        delete Game.gd.o[i];
+        switch (e.components['type'].value) {
+            case "chest":
+                Game.gd.score += 100000;
+                break;
+            case "gold":
+                Game.gd.score += 1000;
+                break;
+            default:
+                break;
+        }
+    }
 }
 function collision(e, l) {
     var ec = e.components;
@@ -1160,11 +1273,37 @@ function movement(e) {
     }
     return false;
 }
+function guideMove(e) {
+    var ec = e.components;
+    var ep = Game.gd.exit.components['p-pos'].value;
+    var gp = ec['p-pos'].value;
+    var dx = ep.x - gp.x;
+    var dy = ep.y - gp.y;
+    var adx = Math.abs(dx);
+    var ady = Math.abs(dy);
+    if (dx == 0 && dy == 0) {
+        ec['p-pos'].value = Pt.from(ec['p-origin'].value);
+    }
+    else if (adx !== 0 && ady !== 0) {
+        gp.x += dx > 0 ? 1 : -1;
+        gp.y += dy > 0 ? 1 : -1;
+    }
+    else if (adx !== 0) {
+        gp.x += dx > 0 ? 1 : -1;
+    }
+    else if (ady !== 0) {
+        gp.y += dy > 0 ? 1 : -1;
+    }
+    var s = ec['sprite'];
+    s.r += 15;
+    if (s.r == 360)
+        s.r = 0;
+}
 function drawEnt(ctx, e, c) {
-    var sp = e.components['sprite'];
-    var s = sp.value;
     var p = e.components['p-pos'].value;
-    if (p.x > 0 && p.x < (c.p.x + c.s.w) && p.y > 0 && p.y < (c.p.y + c.s.h)) {
+    if (p.x >= c.p.x && p.x < (c.p.x + c.s.w) && p.y >= c.p.y && p.y < (c.p.y + c.s.h)) {
+        var sp = e.components['sprite'];
+        var s = sp.value;
         ctx.save();
         ctx.translate(~~((p.x - c.p.x) * Game.T_S * 2) + Game.T_S, ~~((p.y - c.p.y) * Game.T_S * 2) + Game.T_S);
         ctx.rotate(sp.r * Math.PI / 180);
@@ -1209,26 +1348,22 @@ function shuffle(array) {
     }
     return arr;
 }
+var diff;
+(function (diff) {
+    diff[diff["EASY"] = 0] = "EASY";
+    diff[diff["NORMAL"] = 1] = "NORMAL";
+    diff[diff["HARD"] = 2] = "HARD";
+    diff[diff["VHARD"] = 3] = "VHARD";
+})(diff || (diff = {}));
+;
 var GameScreen = (function (_super) {
     __extends(GameScreen, _super);
     function GameScreen() {
         var _this = _super.call(this) || this;
-        _this.c = new Camera(new Pt(), new Dm(32, 14));
-        Game.gd.buildObjBank(4, 8);
-        Game.gd.l = new Level(new Dm(250, 250));
-        Game.gd.l.generate();
-        {
-            var p_1 = createPlayer();
-            Game.gd.addEntity(p_1, new Pt(10, 10));
-        }
-        {
-            var p_2 = createPlayer();
-            p_2.components['input'].value = true;
-            Game.gd.addEntity(p_2, new Pt(11, 10));
-        }
-        var p = Pt.from(Game.gd.getCurrPlayer().components['p-pos'].value);
-        _this.c.p.x = p.x - ~~(_this.c.s.w / 2);
-        _this.c.p.y = p.y - ~~(_this.c.s.h / 2);
+        _this.mt = 0;
+        _this.ma = 1;
+        _this.md = -0.15;
+        _this.c = new Camera(new Pt(), new Dm(32, 17));
         return _this;
     }
     GameScreen.prototype.transitionIn = function () {
@@ -1247,58 +1382,72 @@ var GameScreen = (function (_super) {
             }
             else {
                 this.c.s.w = 32;
-                this.c.s.h = 14;
+                this.c.s.h = 17;
             }
             var p = Pt.from(Game.gd.getCurrPlayer().components['p-pos'].value);
             this.c.p.x = p.x - ~~(this.c.s.w / 2);
             this.c.p.y = p.y - ~~(this.c.s.h / 2);
             this.redraw = true;
         }
-        Game.gd.l.update(delta, this.c);
+        if (Game.gd.p.length === 0) {
+        }
+        this.mt += delta;
+        if (this.mt >= 250) {
+            this.mt = 0;
+            this.ma += this.md;
+            if (this.ma >= 1.0 || this.ma <= 0.55) {
+                this.md *= -1;
+            }
+            this.redraw = true;
+        }
+        for (var e in Game.gd.s) {
+            spawn(Game.gd.s[e]);
+        }
         for (var e in Game.gd.p) {
             var ent = Game.gd.p[e].components;
             var pe = Game.gd.p[e];
+            if (!Game.gd.getCurrPlayer()) {
+                ent['input'].value = true;
+                var p = Pt.from(Game.gd.getCurrPlayer().components['p-pos'].value);
+                this.c.p.x = p.x - ~~(this.c.s.w / 2);
+                this.c.p.y = p.y - ~~(this.c.s.h / 2);
+            }
             if (ent['input'] && ent['input'].value && ent['t-move']) {
                 var tm = ent['t-move'];
                 tm.cur += delta;
                 if (tm.cur >= tm.value) {
-                    if (ent['p-move']) {
-                        if (input(pe)) {
-                            tm.cur = 0;
-                            if (ent['p-pos'] && !collision(pe, Game.gd.l)) {
-                                if (ent['sprite']) {
-                                    animate(pe);
+                    if (ent['p-move'] && input(pe)) {
+                        tm.cur = 0;
+                        if (ent['p-pos'] && !collision(pe, Game.gd.l)) {
+                            ent['sprite'] && animate(pe);
+                            if (movement(pe)) {
+                                this.redraw = true;
+                                var p = ent['p-pos'].value;
+                                this.c.p.x = p.x - ~~(this.c.s.w / 2);
+                                this.c.p.y = p.y - ~~(this.c.s.h / 2);
+                                if (Game.gd.objectAt(p)) {
+                                    var o = Game.gd.getObjectAt(p);
+                                    switch (o.components['type'].value) {
+                                        case 'gold':
+                                            Game.i.ae.beep(new Beep(2500, 2500, 'square', 0.75, 1));
+                                            pickup(o);
+                                            break;
+                                        case 'chest':
+                                            Game.i.ae.beep(new Beep(635, 3, 'square', 0.1, 1));
+                                            pickup(o);
+                                            break;
+                                        case 'switch':
+                                            activate(o);
+                                            break;
+                                        case 'exit':
+                                            exit(pe);
+                                            break;
+                                        default:
+                                            break;
+                                    }
                                 }
-                                if (movement(pe)) {
-                                    this.redraw = true;
-                                    var p = ent['p-pos'].value;
-                                    this.c.p.x = p.x - ~~(this.c.s.w / 2);
-                                    this.c.p.y = p.y - ~~(this.c.s.h / 2);
-                                    if (Game.gd.objectAt(p)) {
-                                        var o = Game.gd.getObjectAt(p);
-                                        switch (o.components['type'].value) {
-                                            case 'gold':
-                                                Game.i.ae.beep(new Beep(2500, 2500, 'square', 0.75, 1));
-                                                pickup(o);
-                                                break;
-                                            case 'chest':
-                                                Game.i.ae.beep(new Beep(635, 3, 'square', 0.1, 1));
-                                                pickup(o);
-                                                break;
-                                            case 'switch':
-                                                Game.i.ae.beep(new Beep(1900, 1, 'square', 0.1, 1));
-                                                activate(o);
-                                                break;
-                                            case 'exit':
-                                                exit(pe);
-                                                break;
-                                            default:
-                                                break;
-                                        }
-                                    }
-                                    else if (ent['s-move']) {
-                                        Game.i.ae.beep(ent['s-move'].value);
-                                    }
+                                else if (ent['s-move']) {
+                                    Game.i.ae.beep(ent['s-move'].value);
                                 }
                             }
                         }
@@ -1306,9 +1455,39 @@ var GameScreen = (function (_super) {
                 }
             }
         }
+        for (var e in Game.gd.g) {
+            var ent = Game.gd.g[e].components;
+            var ge = Game.gd.g[e];
+            var tm = ent['t-move'];
+            tm.cur += delta;
+            if (tm.cur >= tm.value) {
+                tm.cur = 0;
+                guideMove(ge);
+                this.redraw = true;
+            }
+        }
         if (this.redraw) {
+            Game.gd.lights.length = 0;
             for (var e in Game.gd.p) {
                 var ent = Game.gd.p[e].components;
+                if (ent['light'] && ent['p-pos']) {
+                    var l = ent['light'].value;
+                    l.p = ent['p-pos'].value;
+                    l.calc(Game.gd.l.m, Game.gd.l.s);
+                    Game.gd.lights.push(l);
+                }
+            }
+            for (var e in Game.gd.g) {
+                var ent = Game.gd.g[e].components;
+                if (ent['light'] && ent['p-pos']) {
+                    var l = ent['light'].value;
+                    l.p = ent['p-pos'].value;
+                    l.calc(Game.gd.l.m, Game.gd.l.s);
+                    Game.gd.lights.push(l);
+                }
+            }
+            for (var e in Game.gd.m) {
+                var ent = Game.gd.m[e].components;
                 if (ent['light'] && ent['p-pos']) {
                     var l = ent['light'].value;
                     l.p = ent['p-pos'].value;
@@ -1371,15 +1550,37 @@ var GameScreen = (function (_super) {
                 ctx.globalAlpha = 1;
             }
             else {
+                ctx.globalAlpha = this.ma;
                 Game.gd.m.forEach(function (e) {
                     drawEnt(ctx, e, _this.c);
                 });
+                ctx.globalAlpha = 1;
                 Game.gd.o.forEach(function (e) {
                     drawEnt(ctx, e, _this.c);
                 });
                 Game.gd.p.forEach(function (e) {
                     drawEnt(ctx, e, _this.c);
                 });
+                ctx.globalAlpha = 0.3;
+                Game.gd.g.forEach(function (e) {
+                    drawEnt(ctx, e, _this.c);
+                });
+                ctx.globalAlpha = 1;
+                {
+                    ctx.fillStyle = 'white';
+                    ctx.textAlign = 'left';
+                    ctx.font = '11px sans-serif';
+                    drawSpr(ctx, SSM.spriteSheet("marker").sprites[0], new Pt(0.5, 17.5), 2);
+                    drawSpr(ctx, SSM.spriteSheet("marker").sprites[1], new Pt(1.5, 17.5), 2);
+                    ctx.fillText(" x " + Game.gd.markers, Game.T_S * 4, Game.P_H - 2);
+                    var c = 0;
+                    for (var p in Game.gd.p) {
+                        drawSpr(ctx, SSM.spriteSheet("sprites").sprites[0], new Pt(4.5 + (1 * c), 17.5), 2);
+                        c++;
+                    }
+                    ctx.textAlign = 'right';
+                    ctx.fillText("$" + Game.gd.score.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","), Game.P_W - 2, Game.P_H - 2);
+                }
                 if (Game.gd.lm.length > 0) {
                     ctx.fillStyle = "#0d0d0d";
                     for (var x_1 = this.c.p.x, rx = 0; x_1 < this.c.p.x + this.c.s.w; x_1++) {
@@ -1403,11 +1604,16 @@ var MainMenu = (function (_super) {
     function MainMenu() {
         var _this = _super.call(this) || this;
         _this.selectedIndex = 0;
-        _this.menuOptions = ["Start", "Options", "Exit"];
+        _this.subIndex = 0;
+        _this.menuOptions = ["New Game", "Quit"];
+        _this.subMenuOptions = ["Easy", "Normal", "Lost", "Forsaken"];
         return _this;
     }
     MainMenu.prototype.transitionIn = function () {
         this.requestingClear = true;
+        this.selectedIndex = 0;
+        this.subMenu = false;
+        this.subIndex = 0;
         _super.prototype.transitionIn.call(this);
     };
     MainMenu.prototype.transitionOut = function () {
@@ -1415,44 +1621,100 @@ var MainMenu = (function (_super) {
         _super.prototype.transitionIn.call(this);
     };
     MainMenu.prototype.update = function (delta) {
-        if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
-            switch (this.selectedIndex) {
-                case 0:
-                    Game.i.e.gsm.push('game-screen');
-                    break;
-                case 1:
-                    break;
-                default:
-                    window.location.reload();
-                    break;
+        if (Input.KB.wasDown(Input.KB.KEY.ESC)) {
+            this.subMenu = false;
+            this.redraw = true;
+        }
+        else if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
+            if (this.subMenu) {
+                switch (this.subIndex) {
+                    case 0:
+                        Game.gd.setupGame(diff.EASY);
+                        break;
+                    case 1:
+                        Game.gd.setupGame(diff.NORMAL);
+                        break;
+                    case 2:
+                        Game.gd.setupGame(diff.HARD);
+                        break;
+                    case 3:
+                        Game.gd.setupGame(diff.VHARD);
+                        break;
+                    default:
+                        Game.gd.setupGame(diff.EASY);
+                        break;
+                }
+                Game.i.e.gsm.push('game-screen');
+            }
+            else {
+                switch (this.selectedIndex) {
+                    case 0:
+                        this.subMenu = true;
+                        this.redraw = true;
+                        break;
+                    default:
+                        window.location.reload();
+                        break;
+                }
             }
         }
         if (Input.KB.wasBindDown(Input.KB.META_KEY.DOWN)) {
-            this.selectedIndex = (this.selectedIndex + 1) % this.menuOptions.length;
-            this.redraw = this.requestingClear = true;
-        }
-        if (Input.KB.wasBindDown(Input.KB.META_KEY.UP)) {
-            if (this.selectedIndex === 0) {
-                this.selectedIndex = this.menuOptions.length - 1;
+            if (this.subMenu) {
+                this.subIndex = (this.subIndex + 1) % this.subMenuOptions.length;
             }
             else {
-                this.selectedIndex = (this.selectedIndex - 1) % 3;
+                this.selectedIndex = (this.selectedIndex + 1) % this.menuOptions.length;
             }
-            this.redraw = this.requestingClear = true;
+            this.redraw = true;
         }
+        if (Input.KB.wasBindDown(Input.KB.META_KEY.UP)) {
+            if (this.subMenu) {
+                if (this.subIndex === 0) {
+                    this.subIndex = this.subMenuOptions.length - 1;
+                }
+                else {
+                    this.subIndex = (this.subIndex - 1) % this.subMenuOptions.length;
+                }
+            }
+            else {
+                if (this.selectedIndex === 0) {
+                    this.selectedIndex = this.menuOptions.length - 1;
+                }
+                else {
+                    this.selectedIndex = (this.selectedIndex - 1) % this.menuOptions.length;
+                }
+            }
+            this.redraw = true;
+        }
+        this.requestingClear = this.redraw;
     };
     MainMenu.prototype.draw = function (ctx) {
         if (this.redraw) {
             ctx.globalAlpha = 1.0;
-            ctx.font = "18px Verdana";
             ctx.textAlign = "center";
             ctx.fillStyle = ctx.strokeStyle = "#DDDDDD";
             ctx.lineWidth = 2;
-            ctx.fillText("js13k 2017", ~~((Game.P_W / 2) | 0), ~~(64));
-            for (var i = 0; i < this.menuOptions.length; i++) {
-                ctx.fillText(this.menuOptions[i], ~~((Game.P_W / 2) | 0), ~~(((Game.P_H) | 0) - (this.menuOptions.length * 36) + (i * 36)));
+            ctx.font = "30px sans-serif";
+            ctx.fillStyle = "#b71d1d";
+            ctx.fillText("FORSAKEN", ~~((Game.P_W / 2) | 0), ~~(64));
+            ctx.font = "11px sans-serif";
+            ctx.fillStyle = "#3f3f3f";
+            ctx.fillText("FAME. FORTUNE. FREEDOM.", ~~((Game.P_W / 2) | 0), ~~(74));
+            ctx.font = "12px sans-serif";
+            ctx.fillText("js13k 2017 entry by David Brad", ~~((Game.P_W / 2) | 0), ~~(Game.P_H - 5));
+            ctx.fillStyle = "#e8e8e8";
+            if (this.subMenu) {
+                for (var i = 0; i < this.subMenuOptions.length; i++) {
+                    ctx.fillText(this.subMenuOptions[i], ~~((Game.P_W / 2) | 0), ~~(((Game.P_H) | 0) - (this.subMenuOptions.length * 36) + (i * 36)) - 16);
+                }
+                ctx.strokeRect(~~(Game.P_W / 2 - 55), ~~((Game.P_H) - ((this.subMenuOptions.length) * 36) + (this.subIndex * 36) - 32), 110, 24);
             }
-            ctx.strokeRect(~~(Game.P_W / 2 - 75), ~~((Game.P_H) - ((this.menuOptions.length) * 36) + (this.selectedIndex * 36) - 18), 150, 24);
+            else {
+                for (var i = 0; i < this.menuOptions.length; i++) {
+                    ctx.fillText(this.menuOptions[i], ~~((Game.P_W / 2) | 0), ~~(((Game.P_H) | 0) - (this.menuOptions.length * 36) + (i * 36)) - 16);
+                }
+                ctx.strokeRect(~~(Game.P_W / 2 - 55), ~~((Game.P_H) - ((this.menuOptions.length) * 36) + (this.selectedIndex * 36) - 32), 110, 24);
+            }
         }
     };
     return MainMenu;
@@ -1481,11 +1743,13 @@ var MarkerMenu = (function (_super) {
             var i = Game.gd.getMarkerIndex(p);
             if (i !== undefined) {
                 delete Game.gd.m[i];
-                Game.gd.l.m[p.x + (p.y * Game.gd.l.s.w)] &= ~TMASK.M;
+                Game.gd.removeMarker(p);
+                Game.gd.markers += 1;
             }
-            if (this.selectedIndex !== 5) {
+            if (this.selectedIndex !== 5 && Game.gd.markers > 0) {
                 var m = createMarker(this.selectedIndex === 4 ? 1 : 0, 90 * this.selectedIndex);
                 Game.gd.addMarker(m, p);
+                Game.gd.markers -= 1;
             }
             Game.i.e.gsm.pop();
         }
@@ -1516,8 +1780,7 @@ var MarkerMenu = (function (_super) {
             ctx.font = "11px sans-serif";
             ctx.textAlign = "left";
             ctx.fillStyle = ctx.strokeStyle = "#FFFFFF";
-            ctx.fillText("CLEAR", ~~(39 * Game.T_S), ~~(18.5 * Game.T_S));
-            ctx.font = "11px sans-serif";
+            ctx.fillText("PICKUP", ~~(39 * Game.T_S) + 4, ~~(18.5 * Game.T_S));
             ctx.textAlign = "center";
             ctx.fillStyle = ctx.strokeStyle = "#FFFFFF";
             ctx.fillText("PLACE A MARKER", ~~(32 * Game.T_S), ~~(15.5 * Game.T_S));

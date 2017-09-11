@@ -4,10 +4,10 @@ class Light {
     r: number;
     i: number
     a: number[];
-    constructor(p: Pt, i: number) {
+    constructor(p: Pt, i: number, r: number) {
         this.p = p;
         this.i = i;
-        this.r = 8; //~~(i / 0.05);
+        this.r = r;
     }
     calc(m: number[], s: Dm) {
         this.a = [];
@@ -24,15 +24,15 @@ class Light {
                 let idx = ((l[tl].y * s.w) + l[tl].x);
                 let st = mx * (l.length - parseInt(tl));
 
-                if (m[idx] & TMASK.FLOOR && haw > 0) { break; }                
-                
+                if (m[idx] & TMASK.FLOOR && haw > 0) { break; }
+
                 if (!(idx in this.a) || this.a[idx] > st) {
                     this.a[idx] = 1 - (st > 1 ? 1 : st);
                 }
 
-                if (m[idx] & TMASK.S_WALL ) { break; }                
-                if (m[idx] & TMASK.WALL && haw > 1) { break; }          
-                if (m[idx] & TMASK.WALL) { haw++; }          
+                if (m[idx] & TMASK.S_WALL) { break; }
+                if (m[idx] & TMASK.WALL && haw > 1) { break; }
+                if (m[idx] & TMASK.WALL) { haw++; }
                 if (!m[idx]) { break; }
             }
         }
@@ -49,9 +49,8 @@ class Light {
         }
         return lm;
     }
-    static pol(x1: number, y1: number, x2: number, y2: number)
-    {
-        let l: Pt[] = [];    
+    static pol(x1: number, y1: number, x2: number, y2: number) {
+        let l: Pt[] = [];
         var dx = Math.abs(x2 - x1);
         var dy = Math.abs(y2 - y1);
         var x = x1;
@@ -62,16 +61,16 @@ class Light {
         var e = dx - dy;
         dx *= 2;
         dy *= 2;
-        while(n>0) {
+        while (n > 0) {
             l.push(new Pt(x, y));
-            if(e>0) {
-                x+= xInc;
-                e-= dy;
+            if (e > 0) {
+                x += xInc;
+                e -= dy;
             } else {
-                y+= yInc;
-                e+= dx;
+                y += yInc;
+                e += dx;
             }
-            n-= 1;
+            n -= 1;
         }
         return l;
     }

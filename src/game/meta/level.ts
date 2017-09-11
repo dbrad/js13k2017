@@ -15,8 +15,8 @@ namespace TMASK {
     export const WALL = 32;
     export const S_WALL = 64;
 }
-//     0000 0000 0000 0000 0000 0000 0000
-// |PLAYER| |OBJECT | |MARKER | |META   |
+//     00 00..00 0000 0000 0000 0000 0000 0000
+//  |PLAYER|  |  OBJECT  | |MARKER | | META  |
 class Level {
     public m: number[] = [];
     private rc: HTMLCanvasElement;
@@ -152,7 +152,6 @@ class Level {
             }
         }
     }
-    update(delta: number, c: Camera): void { }
     render(ctx: Context2D): void {
         let tn = randomized([0, 1, 1, 2]);
         let fn = randomized([0, 0, 0, 0, 0, 0, 1, 2]);
