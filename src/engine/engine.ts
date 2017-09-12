@@ -57,13 +57,13 @@ class Engine {
                 0, 0, Game.P_W, Game.P_H,
                 0, 0, Game.P_W, Game.P_H);
             this.redraw = this.gsm.cur.redraw = false;
-        } else if (this.systemPause && this.redraw) {
+        } /*else if (this.systemPause && this.redraw) {
             this.ctx.globalAlpha = 0.7;
             this.ctx.fillStyle = "black";
             this.ctx.fillRect(0, 0, Game.P_W, Game.P_H);
             this.ctx.globalAlpha = 1.0;
             this.redraw = this.gsm.cur.redraw = false;
-        }
+        }*/
     }
     
     private loopHandle: number;
@@ -86,10 +86,10 @@ class Engine {
     private systemPause: boolean = false;
     pause(): void {
         this.systemPause = true;
-        this.redraw = true;
+        //this.redraw = true;
     }
     unpause(): void {
         this.systemPause = false;        
-        this.gsm.cur.redraw = this.clearScreen = true;
+        //this.gsm.cur.redraw = this.clearScreen = true;
     }
 }

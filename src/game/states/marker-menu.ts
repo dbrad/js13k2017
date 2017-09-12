@@ -9,14 +9,12 @@ class MarkerMenu extends GameState {
     private selectedIndex: number = 0;
 
     transitionIn(): void {
-        Input.KB.clearInputQueue();
         this.selectedIndex = 5;
         super.transitionIn();
     }
 
     transitionOut(): void {
-        Input.KB.clearInputQueue();
-        super.transitionIn();
+        super.transitionOut();
     }
 
     update(delta: number): void {
@@ -68,16 +66,16 @@ class MarkerMenu extends GameState {
 
             drawSpr(ctx, SSM.spriteSheet("marker").sprites[1], new Pt(18, 9), 2);
 
-            ctx.font = "11px sans-serif";
+            ctx.font = "11px helvetica";
             ctx.textAlign = "left";
-            ctx.fillStyle = ctx.strokeStyle = "#FFFFFF";
+            ctx.fillStyle = "#FFFFFF";
             ctx.fillText(
                 `PICKUP`,
                 ~~(39 * Game.T_S) + 4,
                 ~~(18.5 * Game.T_S));
 
             ctx.textAlign = "center";
-            ctx.fillStyle = ctx.strokeStyle = "#FFFFFF";
+            ctx.fillStyle = "#FFFFFF";
             ctx.fillText(
                 `PLACE A MARKER`,
                 ~~(32 * Game.T_S),

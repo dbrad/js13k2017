@@ -35,9 +35,6 @@ class GameScreen extends GameState {
         }
         // END DEBUG
         */
-        if (Game.gd.p.length === 0) {
-            // END SCREEN.
-        }
 
         // Marker glow effect
         this.mt += delta;
@@ -53,6 +50,25 @@ class GameScreen extends GameState {
         // LOOP THROUGH SPAWNERS
         for (let e in Game.gd.s) {
             spawn(Game.gd.s[e]);
+        }
+
+        if (Game.gd.players <= 0) {
+            Game.i.e.gsm.pop();            
+            let sp = Game.gd.score/Game.gd.t_score;
+            if(sp > 0 && sp < 0.25) { // 1 - 24%
+                Game.gd.message = Message.ENDING_1_24;
+            } else if(sp >= 0.25 && sp < 0.5) { // 25 - 49%
+                Game.gd.message = Message.ENDING_25_49;
+            } else if(sp >= 0.5 && sp < 0.75) { // 50 - 74 %
+                Game.gd.message = Message.ENDING_50_74;
+            } else if(sp >= 0.75 && sp < 0.99) { // 75 - 99%
+                Game.gd.message = Message.ENDING_75_99;
+            } else if(sp == 1) { // 75 - 100%
+                Game.gd.message = Message.ENDING_100;
+            } else { // 0%
+                Game.gd.message = Message.ENDING_0;
+            }
+            Game.i.e.gsm.push('dialog');
         }
 
         // LOOP THROUGH PLAYERS
@@ -162,6 +178,16 @@ class GameScreen extends GameState {
         if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION))
             Game.i.e.gsm.push('marker-menu');
 
+        if(!this.redraw && !Game.gd.opShown) {
+            Game.gd.message = Message.OPENING;
+            Game.i.e.gsm.push('dialog');
+            Game.gd.opShown = true;
+        } else if (!this.redraw && !Game.gd.ctrlShown) {
+            Game.gd.message = Message.CONTROLS;
+            Game.i.e.gsm.push('dialog');
+            Game.gd.ctrlShown = true;
+        }
+
         this.requestingClear = this.redraw;
     }
     private c: Camera;
@@ -259,7 +285,7 @@ class GameScreen extends GameState {
             {
                 ctx.fillStyle = 'white';
                 ctx.textAlign = 'left';
-                ctx.font = '11px sans-serif';
+                ctx.font = '11px helvetica';
 
                 drawSpr(ctx, SSM.spriteSheet("marker").sprites[0], new Pt(0.5, 17.5), 2);
                 drawSpr(ctx, SSM.spriteSheet("marker").sprites[1], new Pt(1.5, 17.5), 2);

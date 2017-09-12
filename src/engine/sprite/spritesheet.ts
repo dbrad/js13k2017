@@ -31,21 +31,6 @@ class SpriteSheet {
         this.storeSprites();
     }
 
-    public reColourize(index: number, r?: number, g?: number, b?: number, a?: number): HTMLCanvasElement {
-        let spriteCtx = this.sprites[index].getContext("2d");
-        let colourData: ImageData = spriteCtx.getImageData(0, 0, this.tileSize, this.tileSize);
-        for (let i = 0; i < (this.tileSize * this.tileSize) * 4; i += 4) {
-            colourData.data[i] = r || colourData.data[i];
-            colourData.data[i + 1] = g || colourData.data[i + 1];
-            colourData.data[i + 2] = b || colourData.data[i + 2];
-            colourData.data[i + 3] = a || colourData.data[i + 3];
-        }
-        let sprite: HTMLCanvasElement = document.createElement("canvas");
-        sprite.width = sprite.height = this.tileSize;
-        sprite.getContext("2d").putImageData(colourData, 0, 0);
-        return sprite;
-    }
-
     private storeSprites(callback: any = null) {
         this.spritesPerRow = ((this.subsheet.w === 0 || this.subsheet.h === 0) ? (this.image.width / this.tileSize) : this.subsheet.w);
         this.spritesPerCol = ((this.subsheet.w === 0 || this.subsheet.h === 0) ? (this.image.height / this.tileSize) : this.subsheet.h);

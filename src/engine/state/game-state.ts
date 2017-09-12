@@ -39,8 +39,6 @@ abstract class GameState {
      * @memberof GameState
      */
     transitionOut(): void {
-        this.redraw = true;
-        this.update(0);
     }
 
     /**

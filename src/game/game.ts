@@ -101,6 +101,7 @@ class Game {
         this.e = new Engine(this._c);
         this.bindings();
         this.e.gsm.reg('main-menu', new MainMenu());
+        this.e.gsm.reg('dialog', new DialogWindow());
         this.e.gsm.reg('game-screen', new GameScreen());
         this.e.gsm.reg('marker-menu', new MarkerMenu());
         this.e.gsm.push('main-menu');

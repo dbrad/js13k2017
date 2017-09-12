@@ -1,5 +1,2 @@
-Starting Flavour text
-Controls Pop-up
-End Game Screen / Flavour Text
-
 Menu beeps.
+Player cycling with Z.

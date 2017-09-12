@@ -53,6 +53,7 @@ class GameStateManager {
      * @memberof GameStateManager
      */
     push(stateName: string): void {
+        Input.KB.clearInputQueue();
         this.cur && this.cur.transitionOut();
         this.stateStack.push(this.stateCollection[stateName]);
         this.cur && this.cur.transitionIn();
@@ -62,6 +63,7 @@ class GameStateManager {
      * @memberof GameStateManager
      */
     pop(): void {
+        Input.KB.clearInputQueue();
         this.cur && this.cur.transitionOut();
         this.stateStack.pop();
         this.cur && this.cur.transitionIn();

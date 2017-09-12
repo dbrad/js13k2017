@@ -139,6 +139,7 @@ var Game = (function () {
         this.e = new Engine(this._c);
         this.bindings();
         this.e.gsm.reg('main-menu', new MainMenu());
+        this.e.gsm.reg('dialog', new DialogWindow());
         this.e.gsm.reg('game-screen', new GameScreen());
         this.e.gsm.reg('marker-menu', new MarkerMenu());
         this.e.gsm.push('main-menu');
@@ -190,8 +191,6 @@ var GameState = (function () {
         this.update(0);
     };
     GameState.prototype.transitionOut = function () {
-        this.redraw = true;
-        this.update(0);
     };
     return GameState;
 }());
@@ -211,11 +210,13 @@ var GameStateManager = (function () {
         configurable: true
     });
     GameStateManager.prototype.push = function (stateName) {
+        Input.KB.clearInputQueue();
         this.cur && this.cur.transitionOut();
         this.stateStack.push(this.stateCollection[stateName]);
         this.cur && this.cur.transitionIn();
     };
     GameStateManager.prototype.pop = function () {
+        Input.KB.clearInputQueue();
         this.cur && this.cur.transitionOut();
         this.stateStack.pop();
         this.cur && this.cur.transitionIn();
@@ -265,13 +266,6 @@ var Engine = (function () {
             this.ctx.drawImage(this.buffer, 0, 0, Game.P_W, Game.P_H, 0, 0, Game.P_W, Game.P_H);
             this.redraw = this.gsm.cur.redraw = false;
         }
-        else if (this.systemPause && this.redraw) {
-            this.ctx.globalAlpha = 0.7;
-            this.ctx.fillStyle = "black";
-            this.ctx.fillRect(0, 0, Game.P_W, Game.P_H);
-            this.ctx.globalAlpha = 1.0;
-            this.redraw = this.gsm.cur.redraw = false;
-        }
     };
     Engine.prototype.loop = function () {
         var now = window.performance.now();
@@ -289,11 +283,9 @@ var Engine = (function () {
     };
     Engine.prototype.pause = function () {
         this.systemPause = true;
-        this.redraw = true;
     };
     Engine.prototype.unpause = function () {
         this.systemPause = false;
-        this.gsm.cur.redraw = this.clearScreen = true;
     };
     return Engine;
 }());
@@ -423,20 +415,6 @@ var SpriteSheet = (function () {
         this.image = ImageCache.getTexture(imageName);
         this.storeSprites();
     }
-    SpriteSheet.prototype.reColourize = function (index, r, g, b, a) {
-        var spriteCtx = this.sprites[index].getContext("2d");
-        var colourData = spriteCtx.getImageData(0, 0, this.tileSize, this.tileSize);
-        for (var i = 0; i < (this.tileSize * this.tileSize) * 4; i += 4) {
-            colourData.data[i] = r || colourData.data[i];
-            colourData.data[i + 1] = g || colourData.data[i + 1];
-            colourData.data[i + 2] = b || colourData.data[i + 2];
-            colourData.data[i + 3] = a || colourData.data[i + 3];
-        }
-        var sprite = document.createElement("canvas");
-        sprite.width = sprite.height = this.tileSize;
-        sprite.getContext("2d").putImageData(colourData, 0, 0);
-        return sprite;
-    };
     SpriteSheet.prototype.storeSprites = function (callback) {
         if (callback === void 0) { callback = null; }
         this.spritesPerRow = ((this.subsheet.w === 0 || this.subsheet.h === 0) ? (this.image.width / this.tileSize) : this.subsheet.w);
@@ -1082,22 +1060,24 @@ var Message;
     Message[Message["OPENING"] = 0] = "OPENING";
     Message[Message["CONTROLS"] = 1] = "CONTROLS";
     Message[Message["ENDING_0"] = 2] = "ENDING_0";
-    Message[Message["ENDING_25"] = 3] = "ENDING_25";
-    Message[Message["ENDING_50"] = 4] = "ENDING_50";
-    Message[Message["ENDING_75"] = 5] = "ENDING_75";
-    Message[Message["ENDING_100"] = 6] = "ENDING_100";
+    Message[Message["ENDING_1_24"] = 3] = "ENDING_1_24";
+    Message[Message["ENDING_25_49"] = 4] = "ENDING_25_49";
+    Message[Message["ENDING_50_74"] = 5] = "ENDING_50_74";
+    Message[Message["ENDING_75_99"] = 6] = "ENDING_75_99";
+    Message[Message["ENDING_100"] = 7] = "ENDING_100";
 })(Message || (Message = {}));
 (function (Message) {
     var _m = [];
-    _m[Message.OPENING] = '';
-    _m[Message.CONTROLS] = '';
-    _m[Message.ENDING_0] = '';
-    _m[Message.ENDING_25] = '';
-    _m[Message.ENDING_50] = '';
-    _m[Message.ENDING_75] = '';
-    _m[Message.ENDING_100] = '';
+    _m[Message.OPENING] = "Seeking fame and fortune, you have recently joined an ambitious team of explorers. Thanks to funding received from a mysterious group of investors, your team was able to set out to explore ancient ruins across the globe. It appears that luck is not on your side, however, as during the exploration you all get separated from each other. The wealth you obtain will only be useful if you live to see the light of day again.";
+    _m[Message.CONTROLS] = "WASD / ARROWS - Movement\nSPACE / ENTER - Open Marker Menu\nZ - Switch Team Member";
+    _m[Message.ENDING_0] = "You and your team make it out alive, but without a penny to show for your efforts. You receive a communication from the investor group recommending that if you cannot make their investment worthwhile, perhaps you should just stay lost in the ruins...";
+    _m[Message.ENDING_1_24] = "You and your team make it out with a few fist fulls of treasure. It's not much to write home about, but hopefully it is enough to convince everyone that it is worth the risk of trying again.";
+    _m[Message.ENDING_25_49] = "Your entire team makes it back to safety, and with modest about of loot in tow. It was a pay cheque well earned, but you know that this is just the tip of the iceberg.";
+    _m[Message.ENDING_50_74] = "Your team steps out into the light, happy to be free of that dusty prison. The weight of your bags acting as a reminder of why you took this risk in the first place. You all know there must have been more treasure to discover, but for today, this was more than enough.";
+    _m[Message.ENDING_75_99] = "Your team emerges from the ruins victorious, bags heavy with gold and jewels. The team looks forward to an evening of celebration and drinking, and the investor group looks forward to seeing a return on their investment.";
+    _m[Message.ENDING_100] = "The expedition was a resounding success. Not a speck of wealth was left behind in the ruins that tried to rob you of your life. The investor group is pleased with the performance of the team, and looks forward to future endeavours together.";
     function getText(m) {
-        return btoa(_m[m]);
+        return _m[m];
     }
     Message.getText = getText;
 })(Message || (Message = {}));
@@ -1370,13 +1350,54 @@ var DialogWindow = (function (_super) {
         _super.prototype.transitionIn.call(this);
     };
     DialogWindow.prototype.transitionOut = function () {
-        this.requestingClear = true;
-        _super.prototype.transitionIn.call(this);
+        _super.prototype.transitionOut.call(this);
     };
     DialogWindow.prototype.update = function (delta) {
-        this.requestingClear = this.redraw;
+        if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
+            Game.i.e.gsm.pop();
+        }
     };
     DialogWindow.prototype.draw = function (ctx) {
+        if (this.redraw) {
+            ctx.globalAlpha = 0.6;
+            ctx.fillStyle = 'black';
+            ctx.fillRect(64, 64, ~~(Game.P_W - 128), ~~(Game.P_H - 128));
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = 'white';
+            ctx.textAlign = 'left';
+            ctx.font = "10px consolas";
+            var x = 80, y = 88;
+            if (Game.gd.message != Message.CONTROLS) {
+                var words = Message.getText(Game.gd.message).split(' ');
+                var line = '';
+                for (var n = 0; n < words.length; n++) {
+                    var tl = line + words[n] + ' ';
+                    var s = ctx.measureText(tl);
+                    var tw = s.width;
+                    if (tw > ~~(Game.P_W - 152) && n > 0) {
+                        ctx.fillText(line, x, y);
+                        line = words[n] + ' ';
+                        y += 16;
+                    }
+                    else {
+                        line = tl;
+                    }
+                }
+                ctx.fillText(line, x, y);
+            }
+            else {
+                var lines = Message.getText(Game.gd.message).split('\n');
+                for (var n = 0; n < lines.length; n++) {
+                    ctx.fillText(lines[n], x, y);
+                    y += 16;
+                }
+            }
+            ctx.textAlign = 'right';
+            ctx.fillText('Press SPACE / ENTER to continue...', ~~(Game.P_W - 72), ~~(Game.P_H - 72));
+            ctx.strokeStyle = 'white';
+            ctx.strokeRect(64, 64, ~~(Game.P_W - 128), ~~(Game.P_H - 128));
+            this.redraw = false;
+        }
     };
     return DialogWindow;
 }(GameState));
@@ -1406,8 +1427,6 @@ var GameScreen = (function (_super) {
         _super.prototype.transitionOut.call(this);
     };
     GameScreen.prototype.update = function (delta) {
-        if (Game.gd.p.length === 0) {
-        }
         this.mt += delta;
         if (this.mt >= 250) {
             this.mt = 0;
@@ -1419,6 +1438,29 @@ var GameScreen = (function (_super) {
         }
         for (var e in Game.gd.s) {
             spawn(Game.gd.s[e]);
+        }
+        if (Game.gd.players <= 0) {
+            Game.i.e.gsm.pop();
+            var sp = Game.gd.score / Game.gd.t_score;
+            if (sp > 0 && sp < 0.25) {
+                Game.gd.message = Message.ENDING_1_24;
+            }
+            else if (sp >= 0.25 && sp < 0.5) {
+                Game.gd.message = Message.ENDING_25_49;
+            }
+            else if (sp >= 0.5 && sp < 0.75) {
+                Game.gd.message = Message.ENDING_50_74;
+            }
+            else if (sp >= 0.75 && sp < 0.99) {
+                Game.gd.message = Message.ENDING_75_99;
+            }
+            else if (sp == 1) {
+                Game.gd.message = Message.ENDING_100;
+            }
+            else {
+                Game.gd.message = Message.ENDING_0;
+            }
+            Game.i.e.gsm.push('dialog');
         }
         for (var e in Game.gd.p) {
             var ent = Game.gd.p[e].components;
@@ -1517,6 +1559,16 @@ var GameScreen = (function (_super) {
         }
         if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION))
             Game.i.e.gsm.push('marker-menu');
+        if (!this.redraw && !Game.gd.opShown) {
+            Game.gd.message = Message.OPENING;
+            Game.i.e.gsm.push('dialog');
+            Game.gd.opShown = true;
+        }
+        else if (!this.redraw && !Game.gd.ctrlShown) {
+            Game.gd.message = Message.CONTROLS;
+            Game.i.e.gsm.push('dialog');
+            Game.gd.ctrlShown = true;
+        }
         this.requestingClear = this.redraw;
     };
     GameScreen.prototype.draw = function (ctx) {
@@ -1542,7 +1594,7 @@ var GameScreen = (function (_super) {
             {
                 ctx.fillStyle = 'white';
                 ctx.textAlign = 'left';
-                ctx.font = '11px sans-serif';
+                ctx.font = '11px helvetica';
                 drawSpr(ctx, SSM.spriteSheet("marker").sprites[0], new Pt(0.5, 17.5), 2);
                 drawSpr(ctx, SSM.spriteSheet("marker").sprites[1], new Pt(1.5, 17.5), 2);
                 ctx.fillText(" x " + Game.gd.markers, Game.T_S * 4, Game.P_H - 4);
@@ -1590,7 +1642,7 @@ var MainMenu = (function (_super) {
     };
     MainMenu.prototype.transitionOut = function () {
         this.requestingClear = true;
-        _super.prototype.transitionIn.call(this);
+        _super.prototype.transitionOut.call(this);
     };
     MainMenu.prototype.update = function (delta) {
         if (Input.KB.wasDown(Input.KB.KEY.ESC)) {
@@ -1666,13 +1718,13 @@ var MainMenu = (function (_super) {
             ctx.textAlign = "center";
             ctx.fillStyle = ctx.strokeStyle = "#DDDDDD";
             ctx.lineWidth = 2;
-            ctx.font = "30px sans-serif";
+            ctx.font = "30px helvetica";
             ctx.fillStyle = "#b71d1d";
             ctx.fillText("FORSAKEN", ~~((Game.P_W / 2) | 0), ~~(64));
-            ctx.font = "11px sans-serif";
+            ctx.font = "11px helvetica";
             ctx.fillStyle = "#3f3f3f";
             ctx.fillText("FAME. FORTUNE. FREEDOM.", ~~((Game.P_W / 2) | 0), ~~(74));
-            ctx.font = "12px sans-serif";
+            ctx.font = "12px helvetica";
             ctx.fillText("js13k 2017 entry by David Brad", ~~((Game.P_W / 2) | 0), ~~(Game.P_H - 5));
             ctx.fillStyle = "#e8e8e8";
             if (this.subMenu) {
@@ -1699,13 +1751,11 @@ var MarkerMenu = (function (_super) {
         return _this;
     }
     MarkerMenu.prototype.transitionIn = function () {
-        Input.KB.clearInputQueue();
         this.selectedIndex = 5;
         _super.prototype.transitionIn.call(this);
     };
     MarkerMenu.prototype.transitionOut = function () {
-        Input.KB.clearInputQueue();
-        _super.prototype.transitionIn.call(this);
+        _super.prototype.transitionOut.call(this);
     };
     MarkerMenu.prototype.update = function (delta) {
         if (Input.KB.wasDown(Input.KB.KEY.ESC))
@@ -1749,12 +1799,12 @@ var MarkerMenu = (function (_super) {
             drawSpr(ctx, SSM.spriteSheet("marker").sprites[0], new Pt(14, 9), 2, 180);
             drawSpr(ctx, SSM.spriteSheet("marker").sprites[0], new Pt(16, 9), 2, 270);
             drawSpr(ctx, SSM.spriteSheet("marker").sprites[1], new Pt(18, 9), 2);
-            ctx.font = "11px sans-serif";
+            ctx.font = "11px helvetica";
             ctx.textAlign = "left";
-            ctx.fillStyle = ctx.strokeStyle = "#FFFFFF";
+            ctx.fillStyle = "#FFFFFF";
             ctx.fillText("PICKUP", ~~(39 * Game.T_S) + 4, ~~(18.5 * Game.T_S));
             ctx.textAlign = "center";
-            ctx.fillStyle = ctx.strokeStyle = "#FFFFFF";
+            ctx.fillStyle = "#FFFFFF";
             ctx.fillText("PLACE A MARKER", ~~(32 * Game.T_S), ~~(15.5 * Game.T_S));
             ctx.strokeStyle = "green";
             ctx.lineWidth = 2;

@@ -45,6 +45,8 @@ class GameData {
     public players: number = 0;
     public markers: number = 0;
     public message: Message;
+    public opShown: boolean;
+    public ctrlShown: boolean;
     private P_OFF: number = 26;
     private O_OFF: number = 16;
     private M_OFF: number = 8;

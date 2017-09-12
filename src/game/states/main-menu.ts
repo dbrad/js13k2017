@@ -22,7 +22,7 @@ class MainMenu extends GameState {
 
     transitionOut(): void {
         this.requestingClear = true;
-        super.transitionIn()
+        super.transitionOut()
     }
 
     update(delta: number): void {
@@ -95,21 +95,21 @@ class MainMenu extends GameState {
             ctx.fillStyle = ctx.strokeStyle = "#DDDDDD";
             ctx.lineWidth = 2;
 
-            ctx.font = "30px sans-serif";
+            ctx.font = "30px helvetica";
             ctx.fillStyle = "#b71d1d";
             ctx.fillText(
                 `FORSAKEN`,
                 ~~((Game.P_W / 2) | 0),
                 ~~(64));
 
-            ctx.font = "11px sans-serif";
+            ctx.font = "11px helvetica";
             ctx.fillStyle = "#3f3f3f";
             ctx.fillText(
                 `FAME. FORTUNE. FREEDOM.`,
                 ~~((Game.P_W / 2) | 0),
                 ~~(74));
 
-            ctx.font = "12px sans-serif";
+            ctx.font = "12px helvetica";
             ctx.fillText(
                 `js13k 2017 entry by David Brad`,
                 ~~((Game.P_W / 2) | 0),
