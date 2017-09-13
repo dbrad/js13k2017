@@ -5,6 +5,7 @@ namespace Input {
             D = 68,
             W = 87,
             S = 83,
+            Z = 90,
             LEFT = 37,
             RIGHT = 39,
             UP = 38,

@@ -6,6 +6,9 @@ class GameScreen extends GameState {
         this.c = new Camera(new Pt(), new Dm(32, 17));
     }
 
+    private boop: Beep = new Beep(545, 550, 'sawtooth', 0.25, 1);
+    private doooom: Beep = new Beep(100, 100, 'sine', 5, 0.95);
+
     transitionIn(): void {
         this.requestingClear = true;
         super.transitionIn();
@@ -53,21 +56,22 @@ class GameScreen extends GameState {
         }
 
         if (Game.gd.players <= 0) {
-            Game.i.e.gsm.pop();            
-            let sp = Game.gd.score/Game.gd.t_score;
-            if(sp > 0 && sp < 0.25) { // 1 - 24%
+            Game.i.e.gsm.pop();
+            let sp = Game.gd.score / Game.gd.t_score;
+            if (sp > 0 && sp < 0.25) { // 1 - 24%
                 Game.gd.message = Message.ENDING_1_24;
-            } else if(sp >= 0.25 && sp < 0.5) { // 25 - 49%
+            } else if (sp >= 0.25 && sp < 0.5) { // 25 - 49%
                 Game.gd.message = Message.ENDING_25_49;
-            } else if(sp >= 0.5 && sp < 0.75) { // 50 - 74 %
+            } else if (sp >= 0.5 && sp < 0.75) { // 50 - 74 %
                 Game.gd.message = Message.ENDING_50_74;
-            } else if(sp >= 0.75 && sp < 0.99) { // 75 - 99%
+            } else if (sp >= 0.75 && sp < 0.99) { // 75 - 99%
                 Game.gd.message = Message.ENDING_75_99;
-            } else if(sp == 1) { // 75 - 100%
+            } else if (sp == 1) { // 75 - 100%
                 Game.gd.message = Message.ENDING_100;
             } else { // 0%
                 Game.gd.message = Message.ENDING_0;
             }
+            Game.i.ae.beep(this.doooom);
             Game.i.e.gsm.push('dialog');
         }
 
@@ -112,6 +116,7 @@ class GameScreen extends GameState {
                                             activate(o);
                                             break;
                                         case 'exit':
+                                            Game.i.ae.beep(new Beep(335, 3, 'square', 0.1, 1));                              
                                             exit(pe);
                                             break;
                                         default:
@@ -175,10 +180,45 @@ class GameScreen extends GameState {
         }
 
         // OPEN MARKER MENU IF ACTION BUTTON PRESSED
-        if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION))
+        if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
             Game.i.e.gsm.push('marker-menu');
+            Game.i.ae.beep(this.boop);
+        }
 
-        if(!this.redraw && !Game.gd.opShown) {
+        if (Input.KB.wasDown(Input.KB.KEY.Z)) {
+            let first: number = null;
+            let count: number = 0;
+            let found: boolean = false;
+            let result: number = null;
+            for(let i in Game.gd.p) {
+                count++;                
+                if(first === null) first = parseInt(i);
+                if(!found) {
+                    found = parseInt(i) == Game.gd.playerInd;
+                } else {
+                    result = parseInt(i);
+                    break;
+                }
+            }
+            if(result === null && count > 1) {
+                result = first;
+            }
+            if(result !== null) {
+                let oldP = Game.gd.getCurrPlayer();
+                oldP.components['input'].value = false;
+                
+                Game.gd.playerInd = result;
+                Game.gd.p[result].components['input'].value = true;
+                let p = Pt.from(Game.gd.getCurrPlayer().components['p-pos'].value);
+                this.c.p.x = p.x - ~~(this.c.s.w / 2);
+                this.c.p.y = p.y - ~~(this.c.s.h / 2);
+
+                Game.i.ae.beep(new Beep(800, 900, 'square', 0.5, 1));                                              
+                this.redraw = true;
+            }
+        }
+
+        if (!this.redraw && !Game.gd.opShown) {
             Game.gd.message = Message.OPENING;
             Game.i.e.gsm.push('dialog');
             Game.gd.opShown = true;
@@ -283,6 +323,9 @@ class GameScreen extends GameState {
 
             // DRAW STATUS BAR
             {
+                ctx.fillStyle = '#0d0d0d';
+                ctx.fillRect(0, 17 * Game.T_S * 2, Game.P_W, Game.T_S * 2);                
+                
                 ctx.fillStyle = 'white';
                 ctx.textAlign = 'left';
                 ctx.font = '11px helvetica';

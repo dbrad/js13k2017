@@ -43,6 +43,7 @@ class GameData {
     public score: number = 0;
     public t_score: number = 0;
     public players: number = 0;
+    public playerInd: number = 0;
     public markers: number = 0;
     public message: Message;
     public opShown: boolean;
@@ -87,7 +88,7 @@ class GameData {
                 s = new Dm(50, 50);
         }
         this.players = p;
-        this.p.length = this.o.length = this.m.length = this.g.length = this.s.length = 0;
+        this.playerInd = this.score = this.t_score = this.p.length = this.o.length = this.m.length = this.g.length = this.s.length = 0;
         this.buildObjBank(p, g, s);
         this.l = new Level(s);
         this.l.generate();

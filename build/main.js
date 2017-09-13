@@ -19,6 +19,7 @@ var Input;
             KEY[KEY["D"] = 68] = "D";
             KEY[KEY["W"] = 87] = "W";
             KEY[KEY["S"] = 83] = "S";
+            KEY[KEY["Z"] = 90] = "Z";
             KEY[KEY["LEFT"] = 37] = "LEFT";
             KEY[KEY["RIGHT"] = 39] = "RIGHT";
             KEY[KEY["UP"] = 38] = "UP";
@@ -457,6 +458,7 @@ var GameData = (function () {
         this.score = 0;
         this.t_score = 0;
         this.players = 0;
+        this.playerInd = 0;
         this.markers = 0;
         this.P_OFF = 26;
         this.O_OFF = 16;
@@ -498,7 +500,7 @@ var GameData = (function () {
                 s = new Dm(50, 50);
         }
         this.players = p;
-        this.p.length = this.o.length = this.m.length = this.g.length = this.s.length = 0;
+        this.playerInd = this.score = this.t_score = this.p.length = this.o.length = this.m.length = this.g.length = this.s.length = 0;
         this.buildObjBank(p, g, s);
         this.l = new Level(s);
         this.l.generate();
@@ -1068,8 +1070,8 @@ var Message;
 })(Message || (Message = {}));
 (function (Message) {
     var _m = [];
-    _m[Message.OPENING] = "Seeking fame and fortune, you have recently joined an ambitious team of explorers. Thanks to funding received from a mysterious group of investors, your team was able to set out to explore ancient ruins across the globe. It appears that luck is not on your side, however, as during the exploration you all get separated from each other. The wealth you obtain will only be useful if you live to see the light of day again.";
-    _m[Message.CONTROLS] = "WASD / ARROWS - Movement\nSPACE / ENTER - Open Marker Menu\nZ - Switch Team Member";
+    _m[Message.OPENING] = "Seeking fame and fortune, you have recently joined an ambitious team of explorers. Thanks to funding received from a mysterious group of investors, your team was able to set out to explore ancient ruins across the globe. It appears that luck is not on your side, however, as during the exploration you all got separated from each other. The wealth you obtain will only be useful if you live to see the light of day again.";
+    _m[Message.CONTROLS] = "WASD / ARROWS - Movement\nSPACE / ENTER - Open Marker Menu\nZ - Switch Team Member\n\nFind the exit, and lead your entire team back to the surface.\n(Don't forget to pickup some treasure along the way.)";
     _m[Message.ENDING_0] = "You and your team make it out alive, but without a penny to show for your efforts. You receive a communication from the investor group recommending that if you cannot make their investment worthwhile, perhaps you should just stay lost in the ruins...";
     _m[Message.ENDING_1_24] = "You and your team make it out with a few fist fulls of treasure. It's not much to write home about, but hopefully it is enough to convince everyone that it is worth the risk of trying again.";
     _m[Message.ENDING_25_49] = "Your entire team makes it back to safety, and with modest about of loot in tow. It was a pay cheque well earned, but you know that this is just the tip of the iceberg.";
@@ -1413,6 +1415,8 @@ var GameScreen = (function (_super) {
     __extends(GameScreen, _super);
     function GameScreen() {
         var _this = _super.call(this) || this;
+        _this.boop = new Beep(545, 550, 'sawtooth', 0.25, 1);
+        _this.doooom = new Beep(100, 100, 'sine', 5, 0.95);
         _this.mt = 0;
         _this.ma = 1;
         _this.md = -0.15;
@@ -1460,6 +1464,7 @@ var GameScreen = (function (_super) {
             else {
                 Game.gd.message = Message.ENDING_0;
             }
+            Game.i.ae.beep(this.doooom);
             Game.i.e.gsm.push('dialog');
         }
         for (var e in Game.gd.p) {
@@ -1499,6 +1504,7 @@ var GameScreen = (function (_super) {
                                             activate(o);
                                             break;
                                         case 'exit':
+                                            Game.i.ae.beep(new Beep(335, 3, 'square', 0.1, 1));
                                             exit(pe);
                                             break;
                                         default:
@@ -1557,8 +1563,42 @@ var GameScreen = (function (_super) {
             if (Game.gd.lights.length > 0)
                 Game.gd.lm = Light.reLM(Game.gd.lights, Game.gd.l.s);
         }
-        if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION))
+        if (Input.KB.wasBindDown(Input.KB.META_KEY.ACTION)) {
             Game.i.e.gsm.push('marker-menu');
+            Game.i.ae.beep(this.boop);
+        }
+        if (Input.KB.wasDown(Input.KB.KEY.Z)) {
+            var first = null;
+            var count = 0;
+            var found = false;
+            var result = null;
+            for (var i in Game.gd.p) {
+                count++;
+                if (first === null)
+                    first = parseInt(i);
+                if (!found) {
+                    found = parseInt(i) == Game.gd.playerInd;
+                }
+                else {
+                    result = parseInt(i);
+                    break;
+                }
+            }
+            if (result === null && count > 1) {
+                result = first;
+            }
+            if (result !== null) {
+                var oldP = Game.gd.getCurrPlayer();
+                oldP.components['input'].value = false;
+                Game.gd.playerInd = result;
+                Game.gd.p[result].components['input'].value = true;
+                var p = Pt.from(Game.gd.getCurrPlayer().components['p-pos'].value);
+                this.c.p.x = p.x - ~~(this.c.s.w / 2);
+                this.c.p.y = p.y - ~~(this.c.s.h / 2);
+                Game.i.ae.beep(new Beep(800, 900, 'square', 0.5, 1));
+                this.redraw = true;
+            }
+        }
         if (!this.redraw && !Game.gd.opShown) {
             Game.gd.message = Message.OPENING;
             Game.i.e.gsm.push('dialog');
@@ -1592,6 +1632,8 @@ var GameScreen = (function (_super) {
             });
             ctx.globalAlpha = 1;
             {
+                ctx.fillStyle = '#0d0d0d';
+                ctx.fillRect(0, 17 * Game.T_S * 2, Game.P_W, Game.T_S * 2);
                 ctx.fillStyle = 'white';
                 ctx.textAlign = 'left';
                 ctx.font = '11px helvetica';
@@ -1629,8 +1671,11 @@ var MainMenu = (function (_super) {
         var _this = _super.call(this) || this;
         _this.selectedIndex = 0;
         _this.subIndex = 0;
-        _this.menuOptions = ["New Game", "Quit"];
+        _this.menuOptions = ["New Game", "Reload"];
         _this.subMenuOptions = ["Easy", "Normal", "Lost", "Forsaken"];
+        _this.bip = new Beep(1050, 1050, 'sawtooth', 0.25, 1);
+        _this.doooom = new Beep(30, 30, 'square', 1.5, 0.1);
+        _this.boop = new Beep(495, 495, 'square', 0.25, 1);
         return _this;
     }
     MainMenu.prototype.transitionIn = function () {
@@ -1639,6 +1684,7 @@ var MainMenu = (function (_super) {
         this.subMenu = false;
         this.subIndex = 0;
         _super.prototype.transitionIn.call(this);
+        Game.i.ae.beep(this.doooom);
     };
     MainMenu.prototype.transitionOut = function () {
         this.requestingClear = true;
@@ -1681,6 +1727,7 @@ var MainMenu = (function (_super) {
                         break;
                 }
             }
+            Game.i.ae.beep(this.boop);
         }
         if (Input.KB.wasBindDown(Input.KB.META_KEY.DOWN)) {
             if (this.subMenu) {
@@ -1689,6 +1736,7 @@ var MainMenu = (function (_super) {
             else {
                 this.selectedIndex = (this.selectedIndex + 1) % this.menuOptions.length;
             }
+            Game.i.ae.beep(this.bip);
             this.redraw = true;
         }
         if (Input.KB.wasBindDown(Input.KB.META_KEY.UP)) {
@@ -1708,6 +1756,7 @@ var MainMenu = (function (_super) {
                     this.selectedIndex = (this.selectedIndex - 1) % this.menuOptions.length;
                 }
             }
+            Game.i.ae.beep(this.bip);
             this.redraw = true;
         }
         this.requestingClear = this.redraw;
@@ -1748,6 +1797,8 @@ var MarkerMenu = (function (_super) {
     function MarkerMenu() {
         var _this = _super.call(this) || this;
         _this.selectedIndex = 0;
+        _this.bip = new Beep(1050, 1050, 'sawtooth', 0.25, 1);
+        _this.boop = new Beep(495, 495, 'square', 0.25, 1);
         return _this;
     }
     MarkerMenu.prototype.transitionIn = function () {
@@ -1773,10 +1824,12 @@ var MarkerMenu = (function (_super) {
                 Game.gd.addMarker(m, p);
                 Game.gd.markers -= 1;
             }
+            Game.i.ae.beep(this.boop);
             Game.i.e.gsm.pop();
         }
         if (Input.KB.wasBindDown(Input.KB.META_KEY.RIGHT)) {
             this.selectedIndex = (this.selectedIndex + 1) % 6;
+            Game.i.ae.beep(this.bip);
             this.redraw = true;
         }
         if (Input.KB.wasBindDown(Input.KB.META_KEY.LEFT)) {
@@ -1786,14 +1839,16 @@ var MarkerMenu = (function (_super) {
             else {
                 this.selectedIndex = (this.selectedIndex - 1) % 6;
             }
+            Game.i.ae.beep(this.bip);
             this.redraw = true;
         }
     };
     MarkerMenu.prototype.draw = function (ctx) {
         if (this.redraw) {
-            ctx.globalAlpha = 1;
+            ctx.globalAlpha = 1.0;
             ctx.fillStyle = "black";
             ctx.fillRect(128, 112, ~~(Game.P_W - 256), ~~(Game.P_H - 240));
+            ctx.globalAlpha = 1;
             drawSpr(ctx, SSM.spriteSheet("marker").sprites[0], new Pt(10, 9), 2);
             drawSpr(ctx, SSM.spriteSheet("marker").sprites[0], new Pt(12, 9), 2, 90);
             drawSpr(ctx, SSM.spriteSheet("marker").sprites[0], new Pt(14, 9), 2, 180);

@@ -9,15 +9,20 @@ class MainMenu extends GameState {
     private selectedIndex: number = 0;
     private subMenu: boolean;
     private subIndex: number = 0;
-    private menuOptions: string[] = ["New Game", "Quit"];
+    private menuOptions: string[] = ["New Game", "Reload"];
     private subMenuOptions: string[] = ["Easy", "Normal", "Lost", "Forsaken"];
+
+    private bip: Beep = new Beep(1050, 1050, 'sawtooth', 0.25, 1);
+    private doooom: Beep = new Beep(30, 30, 'square', 1.5, 0.1);
+    private boop: Beep = new Beep(495, 495, 'square', 0.25, 1);
 
     transitionIn(): void {
         this.requestingClear = true;
         this.selectedIndex = 0;
         this.subMenu = false;
         this.subIndex = 0;
-        super.transitionIn()
+        super.transitionIn();
+        Game.i.ae.beep(this.doooom);
     }
 
     transitionOut(): void {
@@ -60,6 +65,7 @@ class MainMenu extends GameState {
                         break;
                 }
             }
+            Game.i.ae.beep(this.boop);
         }
         if (Input.KB.wasBindDown(Input.KB.META_KEY.DOWN)) {
             if (this.subMenu) {
@@ -67,6 +73,7 @@ class MainMenu extends GameState {
             } else {
                 this.selectedIndex = (this.selectedIndex + 1) % this.menuOptions.length;
             }
+            Game.i.ae.beep(this.bip);
             this.redraw = true;
         }
         if (Input.KB.wasBindDown(Input.KB.META_KEY.UP)) {
@@ -83,6 +90,7 @@ class MainMenu extends GameState {
                     this.selectedIndex = (this.selectedIndex - 1) % this.menuOptions.length;
                 }
             }
+            Game.i.ae.beep(this.bip);
             this.redraw = true;
         }
         this.requestingClear = this.redraw;
