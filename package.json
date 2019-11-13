@@ -16,7 +16,7 @@
   ],
   "dependencies": {
     "express": "*",
-    "gulp": "*",
+    "gulp": "^3.9.1",
     "gulp-clean-css": "*",
     "gulp-footer": "^1.0.5",
     "gulp-header": "^1.8.9",
